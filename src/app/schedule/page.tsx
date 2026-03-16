@@ -41,6 +41,41 @@ function personName(jobs: ServiceJob[], role: JobRole) {
   return person ? `${person.firstName} ${person.lastName}` : '—'
 }
 
+// Short date label for matrix column headers: "15.03."
+function shortDate(iso: string) {
+  const d = new Date(iso)
+  const day = String(d.getDate()).padStart(2, '0')
+  const mon = String(d.getMonth() + 1).padStart(2, '0')
+  return `${day}.${mon}.`
+}
+
+type Person = { id: string; firstName: string; lastName: string }
+
+// Build role matrix for any single role tab
+function buildMatrix(events: EventWithJobs[], role: JobRole) {
+  const now = new Date()
+  const sixMonths = new Date(now.getFullYear(), now.getMonth() + 6, now.getDate())
+
+  const cols = events.filter((e) => {
+    const d = new Date(e.startDate)
+    return d >= now && d <= sixMonths && e.jobs.some((j) => j.role === role)
+  })
+
+  const personMap = new Map<string, Person>()
+  for (const e of cols) {
+    for (const j of e.jobs) {
+      if (j.role === role && j.person) {
+        personMap.set(j.person.id, j.person as Person)
+      }
+    }
+  }
+  const persons = Array.from(personMap.values()).sort((a, b) =>
+    a.lastName.localeCompare(b.lastName)
+  )
+
+  return { cols, persons }
+}
+
 export default function SchedulePage() {
   const [events, setEvents] = useState<EventWithJobs[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,13 +88,8 @@ export default function SchedulePage() {
       .catch(() => setLoading(false))
   }, [])
 
-  const singleRows = events
-    .map((e) => {
-      const job = e.jobs.find((j) => j.role === (activeTab as JobRole))
-      if (!job?.person) return null
-      return { event: e, person: job.person }
-    })
-    .filter((r): r is NonNullable<typeof r> => r !== null)
+  const { cols: matrixCols, persons: matrixPersons } =
+    activeTab !== 'GESAMT' ? buildMatrix(events, activeTab as JobRole) : { cols: [], persons: [] }
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
@@ -116,25 +146,67 @@ export default function SchedulePage() {
             </table>
           </div>
         </div>
-      ) : singleRows.length === 0 ? (
-        <p className="text-gray-500">Keine Einträge gefunden.</p>
+      ) : matrixPersons.length === 0 ? (
+        <p className="text-gray-500">Keine Einträge in den nächsten 6 Monaten.</p>
       ) : (
-        /* ── Single-role list ── */
-        <div className="card divide-y divide-gray-100">
-          {singleRows.map(({ event, person }) => (
-            <div key={event.id} className="flex items-center justify-between px-4 py-3">
-              <div>
-                <span className="text-sm font-medium text-gray-900">
-                  {formatDate(event.startDate)}
-                </span>
-                <span className="text-xs text-gray-400 ml-2">{formatTime(event.startDate)}</span>
-                <span className="ml-3 text-xs text-gray-500">{event.title}</span>
-              </div>
-              <span className="text-sm text-gray-800">
-                {person.firstName} {person.lastName}
-              </span>
-            </div>
-          ))}
+        /* ── Role matrix (all non-Gesamt tabs) ── */
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="text-sm" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #6b7280' }}>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap sticky left-0 bg-white z-10" style={{ borderRight: '1px solid #6b7280' }}>
+                    Name
+                  </th>
+                  <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap text-center sticky bg-white" style={{ left: '10rem', borderRight: '1px solid #6b7280' }}>
+                    Anz.
+                  </th>
+                  {matrixCols.map((e) => (
+                    <th
+                      key={e.id}
+                      className="px-2 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap text-center"
+                      style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: '5rem', verticalAlign: 'bottom', borderRight: '1px solid #6b7280' }}
+                      title={formatDate(e.startDate)}
+                    >
+                      {shortDate(e.startDate)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {matrixPersons.map((p) => {
+                  const role = activeTab as JobRole
+                  const count = matrixCols.filter((e) =>
+                    e.jobs.some((j) => j.role === role && j.person?.id === p.id)
+                  ).length
+                  return (
+                    <tr key={p.id} className="hover:bg-gray-50 transition-colors" style={{ borderBottom: '1px solid #6b7280' }}>
+                      <td className="px-4 py-2 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white" style={{ borderRight: '1px solid #6b7280' }}>
+                        {p.firstName} {p.lastName}
+                      </td>
+                      <td className="px-3 py-2 text-center font-semibold text-blue-600" style={{ borderRight: '1px solid #6b7280' }}>
+                        {count}
+                      </td>
+                      {matrixCols.map((e) => {
+                        const assigned = e.jobs.some(
+                          (j) => j.role === role && j.person?.id === p.id
+                        )
+                        return (
+                          <td key={e.id} className="px-2 py-2 text-center" style={{ borderRight: '1px solid #6b7280' }}>
+                            {assigned ? (
+                              <span className="inline-block w-3 h-3 rounded-full bg-blue-500" title={formatDate(e.startDate)} />
+                            ) : (
+                              <span className="text-gray-300">·</span>
+                            )}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </main>
