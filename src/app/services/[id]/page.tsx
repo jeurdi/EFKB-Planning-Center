@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { ServiceDetail, Person, AgendaItem } from '@/types'
+import type { Invitation } from '@/lib/db'
 import { JobsPanel } from '@/components/JobsPanel'
 import { AgendaBuilder } from '@/components/AgendaBuilder'
 
@@ -35,8 +36,15 @@ export default function ServiceDetailPage({
   const [persons, setPersons] = useState<Person[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [actionMsg, setActionMsg] = useState<string | null>(null)
+  const [inviting, setInviting] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [exportMsg, setExportMsg] = useState<string | null>(null)
+  const [invitations, setInvitations] = useState<Invitation[]>([])
+
+  async function loadInvitations() {
+    const res = await fetch(`/api/services/${id}/invitations`)
+    if (res.ok) setInvitations(await res.json() as Invitation[])
+  }
 
   useEffect(() => {
     async function load() {
@@ -47,8 +55,8 @@ export default function ServiceDetailPage({
         ])
         if (!serviceRes.ok) throw new Error('Service nicht gefunden')
         const [serviceData, personsData] = await Promise.all([
-          serviceRes.json(),
-          personsRes.json(),
+          serviceRes.json() as Promise<ServiceDetail>,
+          personsRes.json() as Promise<Person[]>,
         ])
         setService(serviceData)
         setPersons(personsData)
@@ -59,24 +67,42 @@ export default function ServiceDetailPage({
       }
     }
     load()
+    loadInvitations()
   }, [id])
 
   async function handleExport() {
     setExporting(true)
-    setExportMsg(null)
+    setActionMsg(null)
     try {
       const res = await fetch(`/api/services/${id}/export`, { method: 'POST' })
-      const data = await res.json() as { error?: string; dev?: boolean; preview?: string }
+      const data = await res.json() as { ok?: boolean; dev?: boolean; preview?: string; error?: string }
       if (!res.ok) throw new Error(data.error ?? 'Export fehlgeschlagen')
-      if (data.dev) {
-        setExportMsg(`Vorschau (Dev-Modus):\n${data.preview}`)
-      } else {
-        setExportMsg('Erfolgreich in Kalender exportiert.')
-      }
+      setActionMsg(data.dev ? `Vorschau (Dev):\n${data.preview}` : 'Kalender aktualisiert.')
     } catch (err) {
-      setExportMsg(err instanceof Error ? err.message : 'Export fehlgeschlagen')
+      setActionMsg(err instanceof Error ? err.message : 'Export fehlgeschlagen')
     } finally {
       setExporting(false)
+    }
+  }
+
+  async function handleInvite() {
+    setInviting(true)
+    setActionMsg(null)
+    try {
+      const res = await fetch(`/api/services/${id}/invite`, { method: 'POST' })
+      const data = await res.json() as { sent?: number; failed?: number; dev?: boolean; preview?: Array<{ name: string; to: string | null; roles: string[] }>; count?: number; error?: string }
+      if (!res.ok) throw new Error(data.error ?? 'Fehler beim Senden')
+      if (data.dev) {
+        const lines = data.preview!.map((p) => `${p.name} <${p.to}> — ${p.roles.join(', ')}`).join('\n')
+        setActionMsg(`Vorschau (Dev) — ${data.count} Einladungen:\n${lines}`)
+      } else {
+        setActionMsg(`${data.sent} Einladung(en) gesendet${data.failed ? `, ${data.failed} fehlgeschlagen` : ''}.`)
+      }
+      await loadInvitations()
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'Fehler beim Senden')
+    } finally {
+      setInviting(false)
     }
   }
 
@@ -86,12 +112,12 @@ export default function ServiceDetailPage({
     router.push('/services')
   }
 
-  async function handleJobChange(jobs: ServiceDetail['jobs']) {
+  function handleJobChange(jobs: ServiceDetail['jobs']) {
     if (!service) return
     setService({ ...service, jobs })
   }
 
-  async function handleAgendaChange(agendaItems: AgendaItem[]) {
+  function handleAgendaChange(agendaItems: AgendaItem[]) {
     if (!service) return
     setService({ ...service, agendaItems })
   }
@@ -141,24 +167,27 @@ export default function ServiceDetailPage({
               {formatDate(service.startDate)} · {formatTime(service.startDate)} – {formatTime(service.endDate)} Uhr
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => window.open(`/services/${id}/print`, '_blank')}
-              className="btn-secondary"
-            >
-              PDF
-            </button>
-            <button onClick={handleExport} disabled={exporting} className="btn-secondary">
-              {exporting ? 'Exportiert…' : 'In Kalender exportieren'}
-            </button>
-            <button onClick={handleDelete} className="btn-danger">
-              Löschen
-            </button>
-          </div>
+          <button onClick={handleDelete} className="btn-danger shrink-0">
+            Löschen
+          </button>
         </div>
-        {exportMsg && (
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          <button
+            onClick={() => window.open(`/services/${id}/print`, '_blank')}
+            className="btn-secondary"
+          >
+            PDF
+          </button>
+          <button onClick={handleExport} disabled={exporting} className="btn-secondary">
+            {exporting ? 'Exportiert…' : 'In Kalender exportieren'}
+          </button>
+          <button onClick={handleInvite} disabled={inviting} className="btn-secondary">
+            {inviting ? 'Sendet…' : 'Einladungen senden'}
+          </button>
+        </div>
+        {actionMsg && (
           <pre className="mt-3 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 whitespace-pre-wrap">
-            {exportMsg}
+            {actionMsg}
           </pre>
         )}
       </div>
@@ -170,6 +199,31 @@ export default function ServiceDetailPage({
         persons={persons}
         onChange={handleJobChange}
       />
+
+      {/* Invitation status */}
+      {invitations.length > 0 && (
+        <div className="mt-6 card p-5">
+          <h2 className="font-semibold text-gray-900 mb-3">Einladungsstatus</h2>
+          <div className="divide-y divide-gray-100">
+            {invitations.map((inv) => (
+              <div key={inv.id} className="flex items-center justify-between py-2">
+                <span className="text-sm text-gray-800">
+                  {inv.person?.firstName} {inv.person?.lastName}
+                </span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  inv.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                  inv.status === 'declined' ? 'bg-red-100 text-red-700' :
+                  'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {inv.status === 'accepted' ? '✓ Zugesagt' :
+                   inv.status === 'declined' ? '✗ Abgesagt' :
+                   '· Ausstehend'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Agenda */}
       <div className="mt-6">

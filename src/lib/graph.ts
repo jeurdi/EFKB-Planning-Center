@@ -93,6 +93,41 @@ export async function updateCalendarEventBody(
 }
 
 /**
+ * Send an email via a shared mailbox.
+ * Requires Mail.Send permission and "Send As" on the shared mailbox.
+ */
+export async function sendEmail(
+  accessToken: string,
+  options: {
+    sharedMailbox: string
+    to: string
+    subject: string
+    bodyHtml: string
+  },
+): Promise<void> {
+  const res = await fetch(`${GRAPH_BASE}/me/sendMail`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      message: {
+        subject: options.subject,
+        from: { emailAddress: { address: options.sharedMailbox } },
+        body: { contentType: 'HTML', content: options.bodyHtml },
+        toRecipients: [{ emailAddress: { address: options.to } }],
+      },
+      saveToSentItems: true,
+    }),
+  })
+  if (!res.ok) {
+    const error = await res.text()
+    throw new Error(`Graph API error ${res.status}: ${error}`)
+  }
+}
+
+/**
  * Normalize a Graph API event into a plain object for storage.
  */
 export function normalizeEvent(event: GraphEvent) {

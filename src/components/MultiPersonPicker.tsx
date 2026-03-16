@@ -48,7 +48,7 @@ export function MultiPersonPicker({ persons, values, onChange, placeholder = 'Pe
             <span className="text-gray-400 text-sm">{placeholder}</span>
           ) : (
             selected.map((p) => (
-              <span key={p.id} className="inline-flex items-center bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">
+              <span key={p.id} className="inline-flex items-center bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
                 {p.firstName} {p.lastName}
               </span>
             ))
@@ -81,8 +81,8 @@ export function MultiPersonPicker({ persons, values, onChange, placeholder = 'Pe
                   <button
                     type="button"
                     onClick={() => toggle(p.id)}
-                    className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-blue-50 transition-colors ${
-                      checked ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
+                    className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors ${
+                      checked ? 'bg-gray-50 text-gray-900' : 'text-gray-900'
                     }`}
                   >
                     <span className={`flex-shrink-0 h-4 w-4 rounded border flex items-center justify-center ${

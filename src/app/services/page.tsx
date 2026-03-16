@@ -4,18 +4,27 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { CalendarEvent } from '@/types'
 import { ServiceCard } from '@/components/ServiceCard'
+import { CalendarView } from '@/components/CalendarView'
+import { NewServiceModal } from '@/components/NewServiceModal'
+
+type View = 'list' | 'calendar'
 
 export default function ServicesPage() {
   const [services, setServices] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [exportMsg, setExportMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [view, setView] = useState<View>('calendar')
+  const [showNewModal, setShowNewModal] = useState(false)
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const d = new Date()
+    return new Date(d.getFullYear(), d.getMonth(), 1)
+  })
 
-  async function loadServices() {
+  async function loadServices(all = false) {
     try {
-      const res = await fetch('/api/services')
+      const res = await fetch(`/api/services${all ? '?all=true' : ''}`)
       if (!res.ok) throw new Error('Fehler beim Laden')
       const data = await res.json() as CalendarEvent[]
       setServices(data)
@@ -33,7 +42,7 @@ export default function ServicesPage() {
         const data = await res.json() as { error?: string }
         throw new Error(data.error ?? 'Import fehlgeschlagen')
       }
-      await loadServices()
+      await loadServices(view === 'calendar')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sync fehlgeschlagen')
     } finally {
@@ -41,75 +50,98 @@ export default function ServicesPage() {
     }
   }
 
-  async function exportAll() {
-    setExporting(true)
-    setExportMsg(null)
-    try {
-      const res = await fetch('/api/services/export-all', { method: 'POST' })
-      const data = await res.json() as { exported?: number; skipped?: number; dev?: boolean; preview?: string; error?: string }
-      if (!res.ok) throw new Error(data.error ?? 'Export fehlgeschlagen')
-      if (data.dev) {
-        setExportMsg(`Vorschau (Dev-Modus) — ${data.exported} Ereignisse:\n\n${data.preview}`)
-      } else {
-        setExportMsg(`${data.exported} Ereignisse exportiert${data.skipped ? `, ${data.skipped} übersprungen` : ''}.`)
-      }
-    } catch (err) {
-      setExportMsg(err instanceof Error ? err.message : 'Export fehlgeschlagen')
-    } finally {
-      setExporting(false)
+  // When switching to calendar view, reload all events
+  async function handleViewChange(v: View) {
+    setView(v)
+    if (v === 'calendar' && services.length > 0) {
+      await loadServices(true)
     }
   }
 
-  // Auto-sync on mount, then load
   useEffect(() => {
     syncCalendar().then(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  function prevMonth() {
+    setCurrentMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))
+  }
+  function nextMonth() {
+    setCurrentMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
+      <div className="mb-6">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <h1 className="text-2xl font-bold text-gray-900">Gottesdienste</h1>
-          <p className="text-gray-500 text-sm mt-1">Nächste Termine aus dem Kalender</p>
-        </div>
-        <div className="flex items-center gap-2">
-        <button
-          onClick={exportAll}
-          disabled={exporting || loading}
-          className="btn-secondary"
-        >
-          {exporting ? 'Exportiert…' : 'Alle exportieren'}
-        </button>
-        <button
-          onClick={syncCalendar}
-          disabled={syncing || loading}
-          className="btn-secondary"
-        >
-          <svg
-            className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-          {syncing ? 'Importiert…' : 'Aus Kalender importieren'}
-        </button>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* View toggle */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+              <button
+                onClick={() => handleViewChange('list')}
+                className={`px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${
+                  view === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+                title="Listenansicht"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+                Liste
+              </button>
+              <button
+                onClick={() => handleViewChange('calendar')}
+                className={`px-3 py-1.5 text-sm flex items-center gap-1.5 border-l border-gray-200 transition-colors ${
+                  view === 'calendar' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+                title="Kalenderansicht"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Kalender
+              </button>
+            </div>
+
+            <button onClick={() => setShowNewModal(true)} className="btn-primary">
+              + Neu
+            </button>
+
+            <button
+              onClick={syncCalendar}
+              disabled={syncing || loading}
+              className="btn-secondary"
+              title="Aus Kalender importieren"
+            >
+              <svg
+                className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {syncing ? 'Importiert…' : 'Importieren'}
+            </button>
+
+            <button
+              onClick={async () => {
+                setExporting(true)
+                await fetch('/api/services/export-all', { method: 'POST' })
+                setExporting(false)
+              }}
+              disabled={exporting || loading}
+              className="btn-secondary"
+              title="Alle in Kalender exportieren"
+            >
+              {exporting ? 'Exportiert…' : 'Exportieren'}
+            </button>
+          </div>
         </div>
       </div>
-
-      {exportMsg && (
-        <pre className="mb-6 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 whitespace-pre-wrap">
-          {exportMsg}
-        </pre>
-      )}
 
       {/* Error */}
       {error && (
@@ -118,7 +150,7 @@ export default function ServicesPage() {
         </div>
       )}
 
-      {/* Loading */}
+      {/* Loading skeleton */}
       {loading && (
         <div className="grid gap-3">
           {[1, 2, 3, 4].map((i) => (
@@ -130,17 +162,16 @@ export default function ServicesPage() {
         </div>
       )}
 
-      {/* Services list */}
+      {/* Empty state */}
       {!loading && services.length === 0 && (
         <div className="card p-12 text-center">
           <p className="text-gray-500">Keine Termine gefunden.</p>
-          <p className="text-gray-400 text-sm mt-1">
-            Stellen Sie sicher, dass Ihr Microsoft Kalender Termine enthält.
-          </p>
+          <p className="text-gray-400 text-sm mt-1">Kalender importieren, um Termine zu laden.</p>
         </div>
       )}
 
-      {!loading && services.length > 0 && (
+      {/* List view */}
+      {!loading && services.length > 0 && view === 'list' && (
         <div className="grid gap-3">
           {services.map((service) => (
             <Link key={service.id} href={`/services/${service.id}`}>
@@ -148,6 +179,26 @@ export default function ServicesPage() {
             </Link>
           ))}
         </div>
+      )}
+
+      {/* Calendar view */}
+      {!loading && view === 'calendar' && (
+        <CalendarView
+          services={services}
+          currentMonth={currentMonth}
+          onPrev={prevMonth}
+          onNext={nextMonth}
+        />
+      )}
+
+      {showNewModal && (
+        <NewServiceModal
+          onClose={() => setShowNewModal(false)}
+          onCreated={() => {
+            setShowNewModal(false)
+            loadServices(true)
+          }}
+        />
       )}
     </div>
   )

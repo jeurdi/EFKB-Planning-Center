@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react'
 import type { ServiceDetail } from '@/types'
-import { JOB_ROLE_GROUPS, JOB_ROLE_LABELS } from '@/types'
+import { JOB_ROLE_GROUPS, JOB_ROLE_LABELS, MULTI_PERSON_ROLES } from '@/types'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('de-DE', {
@@ -76,6 +76,7 @@ export default function PrintPage({ params }: { params: Promise<{ id: string }> 
           <div className="space-y-3">
             {JOB_ROLE_GROUPS.map((group) => {
               const groupJobs = group.roles.flatMap((role) =>
+                MULTI_PERSON_ROLES.includes(role) ? [] :
                 service.jobs
                   .filter((j) => j.role === role && j.person)
                   .map((j) => ({ label: JOB_ROLE_LABELS[role], person: j.person! }))

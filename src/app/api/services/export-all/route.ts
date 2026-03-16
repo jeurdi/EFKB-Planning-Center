@@ -11,30 +11,21 @@ export async function POST() {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const events = await eventsDb.getUpcoming(200)
+
+  if (DEV_SKIP_AUTH || !session.accessToken) {
+    return NextResponse.json({ dev: true, count: events.length })
+  }
+
   let exported = 0
   let skipped = 0
-  const previews: string[] = []
-
   for (const event of events) {
     const jobs = await jobsDb.getForEvent(event.id)
-    const bodyText = buildBodyText(jobs)
-
-    if (DEV_SKIP_AUTH || !session.accessToken) {
-      previews.push(`[${event.title} ${event.startDate.slice(0, 10)}]\n${bodyText}`)
-      exported++
-      continue
-    }
-
     try {
-      await updateCalendarEventBody(session.accessToken, event.microsoftId, bodyText)
+      await updateCalendarEventBody(session.accessToken, event.microsoftId, buildBodyText(jobs))
       exported++
     } catch {
       skipped++
     }
-  }
-
-  if (DEV_SKIP_AUTH) {
-    return NextResponse.json({ dev: true, exported, preview: previews.slice(0, 3).join('\n\n---\n\n') + (previews.length > 3 ? `\n\n… +${previews.length - 3} weitere` : '') })
   }
 
   return NextResponse.json({ exported, skipped })

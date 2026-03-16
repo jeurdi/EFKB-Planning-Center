@@ -30,7 +30,7 @@ export const JOB_ROLE_LABELS: Record<JobRole, string> = {
 }
 
 // Roles that support multiple persons per service
-export const MULTI_PERSON_ROLES: JobRole[] = ['TECHNIK_MITARBEITER', 'GESANG_MITARBEITER']
+export const MULTI_PERSON_ROLES: JobRole[] = ['PREDIGT', 'TECHNIK_MITARBEITER', 'GESANG_MITARBEITER']
 
 // Groups for display in JobsPanel
 export const JOB_ROLE_GROUPS: { label: string; roles: JobRole[] }[] = [

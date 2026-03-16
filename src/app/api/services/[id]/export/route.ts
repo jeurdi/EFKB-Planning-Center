@@ -6,7 +6,10 @@ import { buildBodyText } from '@/lib/exportBody'
 
 const DEV_SKIP_AUTH = process.env.DEV_SKIP_AUTH === 'true'
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -18,7 +21,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const bodyText = buildBodyText(jobs)
 
   if (DEV_SKIP_AUTH || !session.accessToken) {
-    // Dev mode: return the body that would be written
     return NextResponse.json({ dev: true, preview: bodyText })
   }
 

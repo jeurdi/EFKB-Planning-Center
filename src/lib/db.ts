@@ -112,6 +112,24 @@ function createLocalDb(): Db {
     sqlite.pragma('user_version = 4')
   }
 
+  if (version < 5) {
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS service_invitations (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
+        person_id TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+        token TEXT NOT NULL UNIQUE,
+        sent_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        responded_at TEXT,
+        UNIQUE(event_id, person_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_invitations_token ON service_invitations(token);
+      CREATE INDEX IF NOT EXISTS idx_invitations_event ON service_invitations(event_id);
+    `)
+    sqlite.pragma('user_version = 5')
+  }
+
   return {
     first<T extends DbRow>(sql: string, params: unknown[] = []): T | null {
       return (sqlite.prepare(sql).get(...params) as T) ?? null
@@ -219,6 +237,11 @@ export const eventsDb = {
     return getDb().all<EventRow>(
       'SELECT * FROM calendar_events WHERE start_date >= ? ORDER BY start_date LIMIT ?',
       [now, limit],
+    ).map(mapEvent)
+  },
+  async getAll(): Promise<CalendarEvent[]> {
+    return getDb().all<EventRow>(
+      'SELECT * FROM calendar_events ORDER BY start_date',
     ).map(mapEvent)
   },
   async delete(id: string): Promise<void> {
@@ -339,5 +362,81 @@ export const agendaDb = {
   },
   async delete(id: string): Promise<void> {
     getDb().run('DELETE FROM agenda_items WHERE id = ?', [id])
+  },
+}
+
+// ─── Invitations ───────────────────────────────────────────────────────────────
+
+export type InvitationStatus = 'pending' | 'accepted' | 'declined'
+
+export interface Invitation {
+  id: string
+  eventId: string
+  personId: string
+  token: string
+  sentAt: string
+  status: InvitationStatus
+  respondedAt: string | null
+  person?: { firstName: string; lastName: string; email: string | null }
+}
+
+type InvitationRow = {
+  id: string; event_id: string; person_id: string; token: string
+  sent_at: string; status: string; responded_at: string | null
+  person_first_name?: string; person_last_name?: string; person_email?: string | null
+}
+
+function mapInvitation(r: InvitationRow): Invitation {
+  return {
+    id: r.id, eventId: r.event_id, personId: r.person_id, token: r.token,
+    sentAt: r.sent_at, status: r.status as InvitationStatus, respondedAt: r.responded_at,
+    person: r.person_first_name ? {
+      firstName: r.person_first_name, lastName: r.person_last_name!, email: r.person_email ?? null,
+    } : undefined,
+  }
+}
+
+export const invitationsDb = {
+  async getForEvent(eventId: string): Promise<Invitation[]> {
+    return getDb().all<InvitationRow>(
+      `SELECT si.*, p.first_name as person_first_name, p.last_name as person_last_name, p.email as person_email
+       FROM service_invitations si JOIN persons p ON p.id = si.person_id
+       WHERE si.event_id = ? ORDER BY p.last_name, p.first_name`,
+      [eventId],
+    ).map(mapInvitation)
+  },
+  async getByToken(token: string): Promise<Invitation | null> {
+    const r = getDb().first<InvitationRow>(
+      `SELECT si.*, p.first_name as person_first_name, p.last_name as person_last_name, p.email as person_email
+       FROM service_invitations si JOIN persons p ON p.id = si.person_id WHERE si.token = ?`,
+      [token],
+    )
+    return r ? mapInvitation(r) : null
+  },
+  async isAlreadyInvited(eventId: string, personId: string): Promise<boolean> {
+    return !!getDb().first(
+      'SELECT id FROM service_invitations WHERE event_id = ? AND person_id = ?',
+      [eventId, personId],
+    )
+  },
+  async create(data: { eventId: string; personId: string }): Promise<Invitation> {
+    const db = getDb()
+    const id = newId()
+    const token = crypto.randomUUID()
+    const sentAt = new Date().toISOString()
+    db.run(
+      `INSERT INTO service_invitations (id, event_id, person_id, token, sent_at, status)
+       VALUES (?, ?, ?, ?, ?, 'pending')`,
+      [id, data.eventId, data.personId, token, sentAt],
+    )
+    return (await this.getByToken(token))!
+  },
+  async respond(token: string, status: 'accepted' | 'declined'): Promise<Invitation | null> {
+    const db = getDb()
+    db.run(
+      `UPDATE service_invitations SET status = ?, responded_at = ? WHERE token = ?`,
+      [status, new Date().toISOString(), token],
+    )
+    return this.getByToken(token)
   },
 }
