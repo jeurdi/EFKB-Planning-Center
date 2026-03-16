@@ -150,6 +150,18 @@ function createLocalDb(): Db {
     sqlite.pragma('user_version = 8')
   }
 
+  if (version < 9) {
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS person_roles (
+        person_id TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+        role TEXT NOT NULL CHECK(role IN ('TECHNIK_LEITER','TECHNIK_MITARBEITER','MODERATION','PREDIGT','KINDERGESCHICHTE','GESANG_LEITER','GESANG_MITARBEITER')),
+        PRIMARY KEY (person_id, role)
+      );
+      CREATE INDEX IF NOT EXISTS idx_person_roles_person ON person_roles(person_id);
+    `)
+    sqlite.pragma('user_version = 9')
+  }
+
   return {
     first<T extends DbRow>(sql: string, params: unknown[] = []): T | null {
       return (sqlite.prepare(sql).get(...params) as T) ?? null
@@ -187,6 +199,7 @@ export function getDb(): Db {
 
 type PersonRow = {
   id: string; first_name: string; last_name: string; email: string | null; created_at: string
+  roles?: string | null
 }
 type EventRow = {
   id: string; microsoft_id: string; title: string; start_date: string; end_date: string; is_service: number
@@ -204,7 +217,10 @@ type AgendaRow = {
 // ─── Mappers ──────────────────────────────────────────────────────────────────
 
 function mapPerson(r: PersonRow): Person {
-  return { id: r.id, firstName: r.first_name, lastName: r.last_name, email: r.email, createdAt: r.created_at }
+  return {
+    id: r.id, firstName: r.first_name, lastName: r.last_name, email: r.email, createdAt: r.created_at,
+    roles: r.roles ? (r.roles.split(',') as JobRole[]) : [],
+  }
 }
 function mapEvent(r: EventRow): CalendarEvent {
   return { id: r.id, microsoftId: r.microsoft_id, title: r.title, startDate: r.start_date, endDate: r.end_date, isService: r.is_service === 1 }
@@ -224,12 +240,23 @@ function newId() { return crypto.randomUUID() }
 
 // ─── Persons ──────────────────────────────────────────────────────────────────
 
+const PERSON_WITH_ROLES_SQL = `
+  SELECT p.*, GROUP_CONCAT(pr.role) as roles
+  FROM persons p
+  LEFT JOIN person_roles pr ON pr.person_id = p.id
+  GROUP BY p.id
+`
+
 export const personsDb = {
   async getAll(): Promise<Person[]> {
-    return getDb().all<PersonRow>('SELECT * FROM persons ORDER BY last_name, first_name').map(mapPerson)
+    return getDb().all<PersonRow>(
+      `${PERSON_WITH_ROLES_SQL} ORDER BY p.last_name, p.first_name`
+    ).map(mapPerson)
   },
   async getById(id: string): Promise<Person | null> {
-    const r = getDb().first<PersonRow>('SELECT * FROM persons WHERE id = ?', [id])
+    const r = getDb().first<PersonRow>(
+      `${PERSON_WITH_ROLES_SQL} HAVING p.id = ?`, [id]
+    )
     return r ? mapPerson(r) : null
   },
   async create(data: { firstName: string; lastName: string; email?: string }): Promise<Person> {
@@ -237,7 +264,7 @@ export const personsDb = {
     const id = newId()
     db.run('INSERT INTO persons (id, first_name, last_name, email) VALUES (?, ?, ?, ?)',
       [id, data.firstName, data.lastName, data.email ?? null])
-    return mapPerson(db.first<PersonRow>('SELECT * FROM persons WHERE id = ?', [id])!)
+    return (await personsDb.getById(id))!
   },
   async update(id: string, data: { firstName: string; lastName: string; email?: string | null }): Promise<Person | null> {
     getDb().run('UPDATE persons SET first_name=?, last_name=?, email=? WHERE id=?',
@@ -246,6 +273,23 @@ export const personsDb = {
   },
   async delete(id: string): Promise<void> {
     getDb().run('DELETE FROM persons WHERE id = ?', [id])
+  },
+}
+
+// ─── Person Roles ─────────────────────────────────────────────────────────────
+
+export const personRolesDb = {
+  async getForPerson(personId: string): Promise<JobRole[]> {
+    return getDb().all<{ role: string }>(
+      'SELECT role FROM person_roles WHERE person_id = ? ORDER BY role', [personId]
+    ).map((r) => r.role as JobRole)
+  },
+  async setForPerson(personId: string, roles: JobRole[]): Promise<void> {
+    const db = getDb()
+    db.run('DELETE FROM person_roles WHERE person_id = ?', [personId])
+    for (const role of roles) {
+      db.run('INSERT INTO person_roles (person_id, role) VALUES (?, ?)', [personId, role])
+    }
   },
 }
 

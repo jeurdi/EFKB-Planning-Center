@@ -87,6 +87,7 @@ export interface Person {
   lastName: string
   email: string | null
   createdAt: string
+  roles?: JobRole[]
 }
 
 export interface CalendarEvent {

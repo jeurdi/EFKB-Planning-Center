@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { personsDb } from '@/lib/db'
-
+import { personsDb, personRolesDb } from '@/lib/db'
+import type { JobRole } from '@/types'
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -9,7 +9,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params
   const body = await req.json()
-  const { firstName, lastName, email } = body
+  const { firstName, lastName, email, roles } = body
 
   if (!firstName?.trim() || !lastName?.trim()) {
     return NextResponse.json({ error: 'Vor- und Nachname sind erforderlich' }, { status: 400 })
@@ -22,7 +22,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   })
 
   if (!person) return NextResponse.json({ error: 'Person nicht gefunden' }, { status: 404 })
-  return NextResponse.json(person)
+
+  await personRolesDb.setForPerson(id, Array.isArray(roles) ? (roles as JobRole[]) : [])
+  return NextResponse.json(await personsDb.getById(id))
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
