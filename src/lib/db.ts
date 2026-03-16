@@ -279,6 +279,13 @@ export const eventsDb = {
       [id, data.microsoftId, data.title, data.startDate, data.endDate],
     )
   },
+  async update(id: string, data: { title: string; startDate: string; endDate: string }): Promise<CalendarEvent | null> {
+    getDb().run(
+      'UPDATE calendar_events SET title=?, start_date=?, end_date=? WHERE id=?',
+      [data.title, data.startDate, data.endDate, id],
+    )
+    return eventsDb.getById(id)
+  },
   async getByMicrosoftId(microsoftId: string): Promise<CalendarEvent | null> {
     const r = getDb().first<EventRow>('SELECT * FROM calendar_events WHERE microsoft_id = ?', [microsoftId])
     return r ? mapEvent(r) : null

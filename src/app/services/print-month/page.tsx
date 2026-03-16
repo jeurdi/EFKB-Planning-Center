@@ -96,23 +96,29 @@ function PrintMonthContent() {
         {services.length === 0 ? (
           <p className="text-gray-500">Keine Gottesdienste in diesem Monat.</p>
         ) : (
-          <table className="text-sm border-collapse">
+          <table className="text-base border-collapse" style={{tableLayout:'fixed', width:'100%'}}>
+            <colgroup>
+              <col style={{width:'1rem'}} />
+              <col style={{width:'6rem'}} />
+              <col style={{width:'5rem'}} />
+              <col />
+            </colgroup>
             <thead>
-              <tr className="border-b border-gray-300">
-                <th colSpan={2} className="py-1.5 pr-6 text-left font-semibold text-gray-500 text-xs uppercase tracking-wider">Datum</th>
-                <th className="py-1.5 pr-6 text-left font-semibold text-gray-500 text-xs uppercase tracking-wider">Uhrzeit</th>
-                <th className="py-1.5 text-left font-semibold text-gray-500 text-xs uppercase tracking-wider">Veranstaltung</th>
+              <tr className="border-b-2 border-gray-400">
+                <th colSpan={2} className="py-1 pr-6 text-left font-semibold text-gray-500">Datum</th>
+                <th className="py-1 pr-6 text-left font-semibold text-gray-500">Uhrzeit</th>
+                <th className="py-1 text-left font-semibold text-gray-500">Veranstaltung</th>
               </tr>
             </thead>
             <tbody>
               {services.map((s) => {
                 const { weekday, day, month, time } = parseDateParts(s.startDate)
                 return (
-                  <tr key={s.id} className="border-b border-gray-100">
-                    <td className="py-1.5 text-gray-700 whitespace-nowrap" style={{paddingRight:'2px'}}>{weekday}</td>
-                    <td className="py-1.5 pr-6 text-gray-700 w-20 text-right">{day} {month}</td>
-                    <td className="py-1.5 pr-6 text-gray-700 w-12">{time}</td>
-                    <td className="py-1.5 text-gray-900 font-medium">{s.title}</td>
+                  <tr key={s.id} className="border-b border-gray-400">
+                    <td className="py-1 text-gray-700 whitespace-nowrap" style={{paddingRight:'2px'}}>{weekday}</td>
+                    <td className="py-1 pr-6 text-gray-700 w-28 text-right whitespace-nowrap">{day} {month}</td>
+                    <td className="py-1 pr-6 text-gray-700 w-12">{time}</td>
+                    <td className="py-1 text-gray-900 font-medium">{s.title}</td>
                   </tr>
                 )
               })}
@@ -121,7 +127,7 @@ function PrintMonthContent() {
         )}
 
         {/* Footer */}
-        <p className="mt-10 text-sm font-bold text-center text-gray-700">
+        <p className="text-sm font-bold text-center text-gray-700" style={{marginTop:'25px'}}>
           Unsere Gottesdienste per live-stream unter: www.youtube.com/c/EFK-Bünde
         </p>
       </div>

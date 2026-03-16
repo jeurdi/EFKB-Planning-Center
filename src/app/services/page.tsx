@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { CalendarEvent } from '@/types'
 import { ServiceCard } from '@/components/ServiceCard'
 import { CalendarView } from '@/components/CalendarView'
@@ -10,6 +11,9 @@ import { NewServiceModal } from '@/components/NewServiceModal'
 type View = 'list' | 'calendar'
 
 export default function ServicesPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
   const [services, setServices] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
@@ -18,6 +22,11 @@ export default function ServicesPage() {
   const [view, setView] = useState<View>('calendar')
   const [showNewModal, setShowNewModal] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(() => {
+    const param = searchParams.get('month')
+    if (param) {
+      const [y, m] = param.split('-').map(Number)
+      return new Date(y, m - 1, 1)
+    }
     const d = new Date()
     return new Date(d.getFullYear(), d.getMonth(), 1)
   })
@@ -63,11 +72,18 @@ export default function ServicesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  function changeMonth(m: Date) {
+    setCurrentMonth(m)
+    const y = m.getFullYear()
+    const mo = String(m.getMonth() + 1).padStart(2, '0')
+    router.replace(`/services?month=${y}-${mo}`, { scroll: false })
+  }
+
   function prevMonth() {
-    setCurrentMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))
+    changeMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))
   }
   function nextMonth() {
-    setCurrentMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))
+    changeMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
   }
 
   return (

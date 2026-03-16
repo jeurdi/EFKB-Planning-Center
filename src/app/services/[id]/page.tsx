@@ -40,6 +40,12 @@ export default function ServiceDetailPage({
   const [inviting, setInviting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [invitations, setInvitations] = useState<Invitation[]>([])
+  const [editing, setEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [editStart, setEditStart] = useState('')
+  const [editEnd, setEditEnd] = useState('')
+  const [saving, setSaving] = useState(false)
 
   async function loadInvitations() {
     const res = await fetch(`/api/services/${id}/invitations`)
@@ -112,6 +118,36 @@ export default function ServiceDetailPage({
     router.push('/services')
   }
 
+  function openEdit() {
+    if (!service) return
+    const s = new Date(service.startDate)
+    const e = new Date(service.endDate)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    setEditTitle(service.title)
+    setEditDate(`${s.getFullYear()}-${pad(s.getMonth() + 1)}-${pad(s.getDate())}`)
+    setEditStart(`${pad(s.getHours())}:${pad(s.getMinutes())}`)
+    setEditEnd(`${pad(e.getHours())}:${pad(e.getMinutes())}`)
+    setEditing(true)
+  }
+
+  async function handleSave() {
+    if (!service) return
+    setSaving(true)
+    const startDate = new Date(`${editDate}T${editStart}:00`).toISOString()
+    const endDate   = new Date(`${editDate}T${editEnd}:00`).toISOString()
+    const res = await fetch(`/api/services/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: editTitle, startDate, endDate }),
+    })
+    if (res.ok) {
+      const updated = await res.json() as { title: string; startDate: string; endDate: string }
+      setService({ ...service, ...updated })
+      setEditing(false)
+    }
+    setSaving(false)
+  }
+
   function handleJobChange(jobs: ServiceDetail['jobs']) {
     if (!service) return
     setService({ ...service, jobs })
@@ -154,19 +190,49 @@ export default function ServiceDetailPage({
     <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Back + Header */}
       <div className="mb-6">
-        <Link href="/services" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-3">
+        <button onClick={() => router.back()} className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-3">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Alle Gottesdienste
-        </Link>
+        </button>
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{service.title}</h1>
-            <p className="text-gray-500 mt-1">
-              {formatDate(service.startDate)} · {formatTime(service.startDate)} – {formatTime(service.endDate)} Uhr
-            </p>
-          </div>
+          {editing ? (
+            <div className="flex flex-col gap-2 flex-1">
+              <input
+                className="input text-lg font-bold"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+              />
+              <div className="flex items-center gap-2 flex-wrap">
+                <input type="date" className="input" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+                <input type="time" className="input" value={editStart} onChange={(e) => setEditStart(e.target.value)} />
+                <span className="text-gray-400 text-sm">–</span>
+                <input type="time" className="input" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
+              </div>
+              <div className="flex gap-2 mt-1">
+                <button onClick={handleSave} disabled={saving} className="btn-primary">
+                  {saving ? 'Speichert…' : 'Speichern'}
+                </button>
+                <button onClick={() => setEditing(false)} className="btn-secondary">Abbrechen</button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-gray-900">{service.title}</h1>
+                <button onClick={openEdit} className="text-gray-400 hover:text-gray-600" title="Bearbeiten">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-gray-500 mt-1">
+                {formatDate(service.startDate)} · {formatTime(service.startDate)} – {formatTime(service.endDate)} Uhr
+              </p>
+            </div>
+          )}
           <button onClick={handleDelete} className="btn-danger shrink-0">
             Löschen
           </button>
