@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+
+# Cloudflare / Wrangler
+.wrangler/
+.dev.vars
+
+# Local environment variables — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Local SQLite dev database
+dev.db
+dev.db-shm
+dev.db-wal
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
+*.swo
