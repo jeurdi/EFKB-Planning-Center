@@ -17,7 +17,7 @@ export async function GET() {
   if (!email) return NextResponse.json([])
 
   const db = getDb()
-  const rows = db.all<Row>(
+  const rows = await db.all<Row>(
     `SELECT ce.id, ce.microsoft_id, ce.title, ce.start_date, ce.end_date, sj.role
      FROM calendar_events ce
      JOIN service_jobs sj ON sj.event_id = ce.id

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { CalendarEvent } from '@/types'
@@ -11,7 +11,11 @@ import { NewServiceModal } from '@/components/NewServiceModal'
 type View = 'list' | 'calendar'
 type Visibility = 'all' | 'public' | 'private'
 
-export default function ServicesPage() {
+export default function ServicesPageWrapper() {
+  return <Suspense><ServicesPage /></Suspense>
+}
+
+function ServicesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
