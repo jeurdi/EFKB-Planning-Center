@@ -18,36 +18,103 @@ function parseDateParts(iso: string) {
   }
 }
 
+function EventTable({ events, hideHeader }: { events: CalendarEvent[]; hideHeader?: boolean }) {
+  return (
+    <table className="text-base border-collapse" style={{ tableLayout: 'fixed', width: '100%' }}>
+      <colgroup>
+        <col style={{ width: '1rem' }} />
+        <col style={{ width: '6rem' }} />
+        <col style={{ width: '5rem' }} />
+        <col />
+      </colgroup>
+      {!hideHeader && (
+        <thead>
+          <tr className="border-b-2 border-gray-400">
+            <th colSpan={2} className="pr-6 text-left font-semibold text-gray-500" style={{ padding: '1px 1.5rem 1px 0' }}>Datum</th>
+            <th className="pr-6 text-left font-semibold text-gray-500" style={{ padding: '1px 1.5rem 1px 0' }}>Uhrzeit</th>
+            <th className="text-left font-semibold text-gray-500" style={{ padding: '1px 0' }}>Veranstaltung</th>
+          </tr>
+        </thead>
+      )}
+      <tbody>
+        {events.map((s) => {
+          const { weekday, day, month, time } = parseDateParts(s.startDate)
+          return (
+            <tr key={s.id} className="border-b border-gray-400">
+              <td className="text-gray-700 whitespace-nowrap" style={{ padding: '1px 2px 1px 0' }}>{weekday}</td>
+              <td className="pr-6 text-gray-700 w-28 text-right whitespace-nowrap" style={{ padding: '1px 1.5rem 1px 0' }}>{day} {month}</td>
+              <td className="pr-6 text-gray-700 w-12" style={{ padding: '1px 1.5rem 1px 0' }}>{time}</td>
+              <td className="text-gray-900 font-medium" style={{ padding: '1px 0' }}>{s.title}</td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
 function PrintMonthContent() {
   const params = useSearchParams()
-  const monthParam = params.get('month') ?? ''   // e.g. "2026-03"
+  const monthParam = params.get('month') ?? ''
 
-  const [services, setServices] = useState<CalendarEvent[]>([])
+  const [allEvents, setAllEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  // Parse month param → year / month index
   const [year, monthIndex] = monthParam
     ? [parseInt(monthParam.slice(0, 4)), parseInt(monthParam.slice(5, 7)) - 1]
     : [new Date().getFullYear(), new Date().getMonth()]
 
   const title = `Veranstaltungen im ${MONTH_NAMES[monthIndex]} ${year}`
 
+  // Next two months
+  function offsetMonth(baseYear: number, baseMonth: number, offset: number) {
+    const total = baseMonth + offset
+    return { y: baseYear + Math.floor(total / 12), m: ((total % 12) + 12) % 12 }
+  }
+  const next1 = offsetMonth(year, monthIndex, 1)
+  const next2 = offsetMonth(year, monthIndex, 2)
+
   useEffect(() => {
     fetch('/api/services?all=true')
       .then((r) => r.json())
       .then((data) => {
-        const all = data as CalendarEvent[]
-        const filtered = all.filter((e) => {
-          const d = new Date(e.startDate)
-          return d.getFullYear() === year && d.getMonth() === monthIndex
-        })
-        filtered.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-        setServices(filtered)
+        const sorted = (data as CalendarEvent[]).sort(
+          (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+        )
+        setAllEvents(sorted)
         setLoading(false)
       })
       .catch(() => { setError('Fehler beim Laden'); setLoading(false) })
-  }, [year, monthIndex])
+  }, [])
+
+  const currentEvents = allEvents.filter((e) => {
+    const d = new Date(e.startDate)
+    return d.getFullYear() === year && d.getMonth() === monthIndex
+  })
+
+  function eventsForMonth(y: number, m: number) {
+    return allEvents.filter((e) => {
+      const d = new Date(e.startDate)
+      return d.getFullYear() === y && d.getMonth() === m
+    })
+  }
+
+  const upcomingGroups = [
+    { label: `${MONTH_NAMES[next1.m]} ${next1.y}`, events: eventsForMonth(next1.y, next1.m) },
+    { label: `${MONTH_NAMES[next2.m]} ${next2.y}`, events: eventsForMonth(next2.y, next2.m) },
+  ].filter((g) => g.events.length > 0)
+
+  const previewEvents = allEvents.filter((e) => selectedIds.has(e.id))
+
+  function toggleId(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
   if (loading) return <p className="p-8 text-gray-400">Lädt…</p>
   if (error)   return <p className="p-8 text-red-600">{error}</p>
@@ -65,19 +132,50 @@ function PrintMonthContent() {
       `}</style>
 
       {/* Toolbar */}
-      <div className="no-print flex items-center gap-3 px-6 py-3 bg-gray-100 border-b border-gray-200">
-        <button
-          onClick={() => window.print()}
-          className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
-        >
-          Als PDF drucken
-        </button>
-        <button
-          onClick={() => window.close()}
-          className="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
-        >
-          Schließen
-        </button>
+      <div className="no-print flex items-start gap-6 px-6 py-4 bg-gray-100 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.print()}
+            className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
+          >
+            Als PDF drucken
+          </button>
+          <button
+            onClick={() => window.close()}
+            className="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
+          >
+            Schließen
+          </button>
+        </div>
+
+        {/* Preview picker */}
+        {upcomingGroups.length > 0 && (
+          <div className="flex gap-6 flex-wrap">
+            {upcomingGroups.map((group) => (
+              <div key={group.label}>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Vorschau {group.label}
+                </p>
+                <div className="flex flex-col gap-0.5">
+                  {group.events.map((e) => {
+                    const { weekday, day, month, time } = parseDateParts(e.startDate)
+                    return (
+                      <label key={e.id} className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(e.id)}
+                          onChange={() => toggleId(e.id)}
+                          className="rounded"
+                        />
+                        {weekday} {day} {month} {time} — {e.title}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Document */}
@@ -93,41 +191,24 @@ function PrintMonthContent() {
           <h1 className="text-2xl font-bold">{title}</h1>
         </div>
 
-        {services.length === 0 ? (
-          <p className="text-gray-500">Keine Gottesdienste in diesem Monat.</p>
+        {currentEvents.length === 0 ? (
+          <p className="text-gray-500">Keine Veranstaltungen in diesem Monat.</p>
         ) : (
-          <table className="text-base border-collapse" style={{tableLayout:'fixed', width:'100%'}}>
-            <colgroup>
-              <col style={{width:'1rem'}} />
-              <col style={{width:'6rem'}} />
-              <col style={{width:'5rem'}} />
-              <col />
-            </colgroup>
-            <thead>
-              <tr className="border-b-2 border-gray-400">
-                <th colSpan={2} className="py-1 pr-6 text-left font-semibold text-gray-500">Datum</th>
-                <th className="py-1 pr-6 text-left font-semibold text-gray-500">Uhrzeit</th>
-                <th className="py-1 text-left font-semibold text-gray-500">Veranstaltung</th>
-              </tr>
-            </thead>
-            <tbody>
-              {services.map((s) => {
-                const { weekday, day, month, time } = parseDateParts(s.startDate)
-                return (
-                  <tr key={s.id} className="border-b border-gray-400">
-                    <td className="py-1 text-gray-700 whitespace-nowrap" style={{paddingRight:'2px'}}>{weekday}</td>
-                    <td className="py-1 pr-6 text-gray-700 w-28 text-right whitespace-nowrap">{day} {month}</td>
-                    <td className="py-1 pr-6 text-gray-700 w-12">{time}</td>
-                    <td className="py-1 text-gray-900 font-medium">{s.title}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <EventTable events={currentEvents} />
+        )}
+
+        {/* Preview section — only rendered when at least one event is selected */}
+        {previewEvents.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-base font-semibold text-gray-500 mb-3 border-b border-gray-300 pb-1">
+              Vorschau
+            </h2>
+            <EventTable events={previewEvents} hideHeader />
+          </div>
         )}
 
         {/* Footer */}
-        <p className="text-sm font-bold text-center text-gray-700" style={{marginTop:'25px'}}>
+        <p className="text-sm font-bold text-center text-gray-700" style={{ marginTop: '25px' }}>
           Unsere Gottesdienste per live-stream unter: www.youtube.com/c/EFK-Bünde
         </p>
       </div>
