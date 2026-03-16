@@ -130,6 +130,26 @@ function createLocalDb(): Db {
     sqlite.pragma('user_version = 5')
   }
 
+  if (version < 6) {
+    sqlite.exec(`UPDATE calendar_events SET title = 'Gebets-, Kinder- & Bibelstunde' WHERE title = 'Freitagabend'`)
+    sqlite.pragma('user_version = 6')
+  }
+
+  if (version < 7) {
+    sqlite.pragma('user_version = 7')
+  }
+
+  if (version < 8) {
+    // Remove old-format dev seed entries that are duplicates of the dev-gottesdienst-* entries
+    sqlite.exec(`
+      DELETE FROM calendar_events
+      WHERE title = 'Gottesdienst'
+      AND microsoft_id LIKE 'dev-%'
+      AND microsoft_id NOT LIKE 'dev-gottesdienst-%'
+    `)
+    sqlite.pragma('user_version = 8')
+  }
+
   return {
     first<T extends DbRow>(sql: string, params: unknown[] = []): T | null {
       return (sqlite.prepare(sql).get(...params) as T) ?? null

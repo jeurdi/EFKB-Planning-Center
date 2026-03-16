@@ -59,7 +59,7 @@ export default function ServicesPage() {
   }
 
   useEffect(() => {
-    syncCalendar().then(() => setLoading(false))
+    loadServices(true).then(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -138,6 +138,18 @@ export default function ServicesPage() {
               title="Alle in Kalender exportieren"
             >
               {exporting ? 'Exportiert…' : 'Exportieren'}
+            </button>
+
+            <button
+              onClick={() => {
+                const y = currentMonth.getFullYear()
+                const m = String(currentMonth.getMonth() + 1).padStart(2, '0')
+                window.open(`/services/print-month?month=${y}-${m}`, '_blank')
+              }}
+              className="btn-secondary"
+              title="PDF für den aktuellen Monat"
+            >
+              Monats-PDF
             </button>
           </div>
         </div>

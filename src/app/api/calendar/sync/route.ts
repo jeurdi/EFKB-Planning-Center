@@ -1,41 +1,18 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { fetchCalendarEvents, normalizeEvent } from '@/lib/graph'
-import { eventsDb } from '@/lib/db'
+import { eventsDb, getDb } from '@/lib/db'
 
 const DEV_SKIP_AUTH = process.env.DEV_SKIP_AUTH === 'true'
-
-// In dev mode (no real Microsoft token), insert placeholder events
-async function seedDevEvents() {
-  const now = new Date()
-  const sundays = [0, 7, 14, 21, 28, 35].map((offset) => {
-    const d = new Date(now)
-    const daysUntilSunday = (7 - d.getDay()) % 7 || 7
-    d.setDate(d.getDate() + daysUntilSunday + offset)
-    d.setHours(10, 0, 0, 0)
-    return d
-  })
-
-  for (const sunday of sundays) {
-    const end = new Date(sunday)
-    end.setHours(11, 30)
-    await eventsDb.upsert({
-      microsoftId: `dev-${sunday.toISOString().slice(0, 10)}`,
-      title: 'Gottesdienst',
-      startDate: sunday.toISOString(),
-      endDate: end.toISOString(),
-    })
-  }
-  return sundays.length
-}
 
 export async function POST() {
   const session = await auth()
 
   if (DEV_SKIP_AUTH || !session?.accessToken) {
     if (!DEV_SKIP_AUTH) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const synced = await seedDevEvents()
-    return NextResponse.json({ synced, dev: true })
+    // Clean up old-format dev entries (microsoftId = "dev-YYYY-MM-DD", length 14)
+    getDb().run(`DELETE FROM calendar_events WHERE microsoft_id LIKE 'dev-%' AND length(microsoft_id) = 14`)
+    return NextResponse.json({ synced: 0, dev: true })
   }
 
   try {
