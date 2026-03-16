@@ -9,6 +9,7 @@ import { CalendarView } from '@/components/CalendarView'
 import { NewServiceModal } from '@/components/NewServiceModal'
 
 type View = 'list' | 'calendar'
+type Visibility = 'all' | 'public' | 'private'
 
 export default function ServicesPage() {
   const router = useRouter()
@@ -20,6 +21,7 @@ export default function ServicesPage() {
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<View>('calendar')
+  const [visibility, setVisibility] = useState<Visibility>('all')
   const [showNewModal, setShowNewModal] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(() => {
     const param = searchParams.get('month')
@@ -86,6 +88,12 @@ export default function ServicesPage() {
     changeMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
   }
 
+  const filteredServices = services.filter((s) => {
+    if (visibility === 'public') return s.isPublic
+    if (visibility === 'private') return !s.isPublic
+    return true
+  })
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Header */}
@@ -94,6 +102,21 @@ export default function ServicesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Gottesdienste</h1>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Visibility filter */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+              {(['all', 'public', 'private'] as Visibility[]).map((v, i) => (
+                <button
+                  key={v}
+                  onClick={() => setVisibility(v)}
+                  className={`px-3 py-1.5 text-sm transition-colors ${i > 0 ? 'border-l border-gray-200' : ''} ${
+                    visibility === v ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {v === 'all' ? 'Alle' : v === 'public' ? 'Öffentlich' : 'Intern'}
+                </button>
+              ))}
+            </div>
+
             {/* View toggle */}
             <div className="flex rounded-lg border border-gray-200 overflow-hidden">
               <button
@@ -191,7 +214,7 @@ export default function ServicesPage() {
       )}
 
       {/* Empty state */}
-      {!loading && services.length === 0 && (
+      {!loading && filteredServices.length === 0 && (
         <div className="card p-12 text-center">
           <p className="text-gray-500">Keine Termine gefunden.</p>
           <p className="text-gray-400 text-sm mt-1">Kalender importieren, um Termine zu laden.</p>
@@ -199,9 +222,9 @@ export default function ServicesPage() {
       )}
 
       {/* List view */}
-      {!loading && services.length > 0 && view === 'list' && (
+      {!loading && filteredServices.length > 0 && view === 'list' && (
         <div className="grid gap-3">
-          {services.map((service) => (
+          {filteredServices.map((service) => (
             <Link key={service.id} href={`/services/${service.id}`}>
               <ServiceCard service={service} />
             </Link>
@@ -212,7 +235,7 @@ export default function ServicesPage() {
       {/* Calendar view */}
       {!loading && view === 'calendar' && (
         <CalendarView
-          services={services}
+          services={filteredServices}
           currentMonth={currentMonth}
           onPrev={prevMonth}
           onNext={nextMonth}

@@ -11,6 +11,7 @@ import type {
   AgendaItem,
   JobRole,
   AgendaTag,
+  EventType,
 } from '@/types'
 
 // ─── Database abstraction ─────────────────────────────────────────────────────
@@ -162,6 +163,23 @@ function createLocalDb(): Db {
     sqlite.pragma('user_version = 9')
   }
 
+  if (version < 10) {
+    sqlite.exec(`
+      ALTER TABLE calendar_events ADD COLUMN type TEXT NOT NULL DEFAULT 'SONSTIGE';
+      ALTER TABLE calendar_events ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE calendar_events ADD COLUMN needs_planning INTEGER NOT NULL DEFAULT 0;
+    `)
+    // Backfill types based on title patterns
+    sqlite.exec(`
+      UPDATE calendar_events SET type='GOTTESDIENST', needs_planning=1 WHERE title='Gottesdienst';
+      UPDATE calendar_events SET type='JUGEND'       WHERE title LIKE '%Jugend%';
+      UPDATE calendar_events SET type='KINDER'       WHERE title LIKE '%Jungschar%' OR title LIKE '%Teeny%';
+      UPDATE calendar_events SET type='GEBET'        WHERE title LIKE '%Gebet%' OR title LIKE '%Bibel%';
+      UPDATE calendar_events SET type='MITARBEITER'  WHERE title LIKE '%Mitarbeiter%';
+    `)
+    sqlite.pragma('user_version = 10')
+  }
+
   return {
     first<T extends DbRow>(sql: string, params: unknown[] = []): T | null {
       return (sqlite.prepare(sql).get(...params) as T) ?? null
@@ -203,6 +221,7 @@ type PersonRow = {
 }
 type EventRow = {
   id: string; microsoft_id: string; title: string; start_date: string; end_date: string; is_service: number
+  type: string; is_public: number; needs_planning: number
 }
 type JobRow = {
   id: string; event_id: string; role: JobRole; person_id: string | null
@@ -223,7 +242,12 @@ function mapPerson(r: PersonRow): Person {
   }
 }
 function mapEvent(r: EventRow): CalendarEvent {
-  return { id: r.id, microsoftId: r.microsoft_id, title: r.title, startDate: r.start_date, endDate: r.end_date, isService: r.is_service === 1 }
+  return {
+    id: r.id, microsoftId: r.microsoft_id, title: r.title, startDate: r.start_date, endDate: r.end_date, isService: r.is_service === 1,
+    eventType: (r.type ?? 'SONSTIGE') as EventType,
+    isPublic: r.is_public !== 0,
+    needsPlanning: r.needs_planning === 1,
+  }
 }
 function personFromRow(r: { person_id: string | null; person_first_name?: string | null; person_last_name?: string | null; person_email?: string | null }): Person | null {
   if (!r.person_id || !r.person_first_name) return null
@@ -315,18 +339,29 @@ export const eventsDb = {
     const r = getDb().first<EventRow>('SELECT * FROM calendar_events WHERE id = ?', [id])
     return r ? mapEvent(r) : null
   },
-  async upsert(data: { microsoftId: string; title: string; startDate: string; endDate: string }): Promise<void> {
+  async upsert(data: { microsoftId: string; title: string; startDate: string; endDate: string; eventType?: EventType; isPublic?: boolean; needsPlanning?: boolean }): Promise<void> {
     const id = newId()
     getDb().run(
-      `INSERT INTO calendar_events (id, microsoft_id, title, start_date, end_date) VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO calendar_events (id, microsoft_id, title, start_date, end_date, type, is_public, needs_planning)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(microsoft_id) DO UPDATE SET title=excluded.title, start_date=excluded.start_date, end_date=excluded.end_date`,
-      [id, data.microsoftId, data.title, data.startDate, data.endDate],
+      [id, data.microsoftId, data.title, data.startDate, data.endDate,
+       data.eventType ?? 'SONSTIGE', data.isPublic !== false ? 1 : 0, data.needsPlanning ? 1 : 0],
     )
   },
-  async update(id: string, data: { title: string; startDate: string; endDate: string }): Promise<CalendarEvent | null> {
+  async update(id: string, data: { title?: string; startDate?: string; endDate?: string; isPublic?: boolean; needsPlanning?: boolean }): Promise<CalendarEvent | null> {
+    const current = await eventsDb.getById(id)
+    if (!current) return null
     getDb().run(
-      'UPDATE calendar_events SET title=?, start_date=?, end_date=? WHERE id=?',
-      [data.title, data.startDate, data.endDate, id],
+      'UPDATE calendar_events SET title=?, start_date=?, end_date=?, is_public=?, needs_planning=? WHERE id=?',
+      [
+        data.title ?? current.title,
+        data.startDate ?? current.startDate,
+        data.endDate ?? current.endDate,
+        data.isPublic !== undefined ? (data.isPublic ? 1 : 0) : (current.isPublic ? 1 : 0),
+        data.needsPlanning !== undefined ? (data.needsPlanning ? 1 : 0) : (current.needsPlanning ? 1 : 0),
+        id,
+      ],
     )
     return eventsDb.getById(id)
   },

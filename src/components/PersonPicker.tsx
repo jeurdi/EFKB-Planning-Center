@@ -5,12 +5,13 @@ import type { Person } from '@/types'
 
 interface PersonPickerProps {
   persons: Person[]
+  matchCount?: number
   value: string | null
   onChange: (personId: string | null) => void
   placeholder?: string
 }
 
-export function PersonPicker({ persons, value, onChange, placeholder = 'Person auswählen…' }: PersonPickerProps) {
+export function PersonPicker({ persons, matchCount = 0, value, onChange, placeholder = 'Person auswählen…' }: PersonPickerProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
@@ -80,8 +81,12 @@ export function PersonPicker({ persons, value, onChange, placeholder = 'Person a
             {filtered.length === 0 && (
               <li className="px-3 py-2 text-sm text-gray-400 italic">Keine Ergebnisse</li>
             )}
-            {filtered.map((p) => (
+            {filtered.map((p, idx) => (
               <li key={p.id}>
+                {/* Divider between matched and rest (only when not searching) */}
+                {!search && matchCount > 0 && matchCount < persons.length && idx === matchCount && (
+                  <div className="mx-3 my-1 border-t border-gray-200" />
+                )}
                 <button
                   type="button"
                   onClick={() => { onChange(p.id); setOpen(false); setSearch('') }}
@@ -89,7 +94,7 @@ export function PersonPicker({ persons, value, onChange, placeholder = 'Person a
                     value === p.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-900'
                   }`}
                 >
-                  {p.firstName} {p.lastName}
+                  {p.lastName}, {p.firstName}
                 </button>
               </li>
             ))}

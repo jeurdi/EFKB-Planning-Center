@@ -180,7 +180,7 @@ export default function PersonsPage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900">
-                      {person.firstName} {person.lastName}
+                      {person.lastName}, {person.firstName}
                     </p>
                     {person.email && (
                       <p className="text-sm text-gray-400 truncate">{person.email}</p>

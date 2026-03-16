@@ -141,11 +141,24 @@ export default function ServiceDetailPage({
       body: JSON.stringify({ title: editTitle, startDate, endDate }),
     })
     if (res.ok) {
-      const updated = await res.json() as { title: string; startDate: string; endDate: string }
+      const updated = await res.json() as ServiceDetail
       setService({ ...service, ...updated })
       setEditing(false)
     }
     setSaving(false)
+  }
+
+  async function handleToggle(field: 'isPublic' | 'needsPlanning') {
+    if (!service) return
+    const res = await fetch(`/api/services/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [field]: !service[field] }),
+    })
+    if (res.ok) {
+      const updated = await res.json() as ServiceDetail
+      setService({ ...service, ...updated })
+    }
   }
 
   function handleJobChange(jobs: ServiceDetail['jobs']) {
@@ -219,13 +232,32 @@ export default function ServiceDetailPage({
             </div>
           ) : (
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold text-gray-900">{service.title}</h1>
                 <button onClick={openEdit} className="text-gray-400 hover:text-gray-600" title="Bearbeiten">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z" />
                   </svg>
+                </button>
+                {/* Status badges */}
+                <button
+                  onClick={() => handleToggle('isPublic')}
+                  title={service.isPublic ? 'Klicken um intern zu setzen' : 'Klicken um zu veröffentlichen'}
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${
+                    service.isPublic ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  {service.isPublic ? '✓ Öffentlich' : '🔒 Intern'}
+                </button>
+                <button
+                  onClick={() => handleToggle('needsPlanning')}
+                  title={service.needsPlanning ? 'Planung deaktivieren' : 'Planung aktivieren'}
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${
+                    service.needsPlanning ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                  }`}
+                >
+                  {service.needsPlanning ? '✓ Planung aktiv' : '+ Planung aktivieren'}
                 </button>
               </div>
               <p className="text-gray-500 mt-1">
@@ -258,49 +290,64 @@ export default function ServiceDetailPage({
         )}
       </div>
 
-      {/* Jobs */}
-      <JobsPanel
-        eventId={id}
-        jobs={service.jobs}
-        persons={persons}
-        onChange={handleJobChange}
-      />
+      {/* Planning sections — only shown when needsPlanning is active */}
+      {service.needsPlanning ? (
+        <>
+          {/* Jobs */}
+          <JobsPanel
+            eventId={id}
+            jobs={service.jobs}
+            persons={persons}
+            onChange={handleJobChange}
+          />
 
-      {/* Invitation status */}
-      {invitations.length > 0 && (
-        <div className="mt-6 card p-5">
-          <h2 className="font-semibold text-gray-900 mb-3">Einladungsstatus</h2>
-          <div className="divide-y divide-gray-100">
-            {invitations.map((inv) => (
-              <div key={inv.id} className="flex items-center justify-between py-2">
-                <span className="text-sm text-gray-800">
-                  {inv.person?.firstName} {inv.person?.lastName}
-                </span>
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  inv.status === 'accepted' ? 'bg-green-100 text-green-700' :
-                  inv.status === 'declined' ? 'bg-red-100 text-red-700' :
-                  'bg-yellow-100 text-yellow-700'
-                }`}>
-                  {inv.status === 'accepted' ? '✓ Zugesagt' :
-                   inv.status === 'declined' ? '✗ Abgesagt' :
-                   '· Ausstehend'}
-                </span>
+          {/* Invitation status */}
+          {invitations.length > 0 && (
+            <div className="mt-6 card p-5">
+              <h2 className="font-semibold text-gray-900 mb-3">Einladungsstatus</h2>
+              <div className="divide-y divide-gray-100">
+                {invitations.map((inv) => (
+                  <div key={inv.id} className="flex items-center justify-between py-2">
+                    <span className="text-sm text-gray-800">
+                      {inv.person?.firstName} {inv.person?.lastName}
+                    </span>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      inv.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                      inv.status === 'declined' ? 'bg-red-100 text-red-700' :
+                      'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {inv.status === 'accepted' ? '✓ Zugesagt' :
+                       inv.status === 'declined' ? '✗ Abgesagt' :
+                       '· Ausstehend'}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+          )}
+
+          {/* Agenda */}
+          <div className="mt-6">
+            <AgendaBuilder
+              eventId={id}
+              items={service.agendaItems}
+              persons={persons}
+              jobs={service.jobs}
+              onChange={handleAgendaChange}
+            />
           </div>
+        </>
+      ) : (
+        <div className="card p-8 text-center text-gray-400 mt-2">
+          <p className="text-sm">Kein Planungsbereich für diesen Termin.</p>
+          <button
+            onClick={() => handleToggle('needsPlanning')}
+            className="btn-secondary mt-3"
+          >
+            + Planung aktivieren
+          </button>
         </div>
       )}
-
-      {/* Agenda */}
-      <div className="mt-6">
-        <AgendaBuilder
-          eventId={id}
-          items={service.agendaItems}
-          persons={persons}
-          jobs={service.jobs}
-          onChange={handleAgendaChange}
-        />
-      </div>
     </div>
   )
 }

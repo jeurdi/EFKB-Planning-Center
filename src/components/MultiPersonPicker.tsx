@@ -5,12 +5,13 @@ import type { Person } from '@/types'
 
 interface MultiPersonPickerProps {
   persons: Person[]
+  matchCount?: number
   values: string[]
   onChange: (personIds: string[]) => void
   placeholder?: string
 }
 
-export function MultiPersonPicker({ persons, values, onChange, placeholder = 'Personen auswählen…' }: MultiPersonPickerProps) {
+export function MultiPersonPicker({ persons, matchCount = 0, values, onChange, placeholder = 'Personen auswählen…' }: MultiPersonPickerProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
@@ -74,10 +75,13 @@ export function MultiPersonPicker({ persons, values, onChange, placeholder = 'Pe
             {filtered.length === 0 && (
               <li className="px-3 py-2 text-sm text-gray-400 italic">Keine Ergebnisse</li>
             )}
-            {filtered.map((p) => {
+            {filtered.map((p, idx) => {
               const checked = values.includes(p.id)
               return (
                 <li key={p.id}>
+                  {!search && matchCount > 0 && matchCount < persons.length && idx === matchCount && (
+                    <div className="mx-3 my-1 border-t border-gray-200" />
+                  )}
                   <button
                     type="button"
                     onClick={() => toggle(p.id)}
@@ -94,7 +98,7 @@ export function MultiPersonPicker({ persons, values, onChange, placeholder = 'Pe
                         </svg>
                       )}
                     </span>
-                    {p.firstName} {p.lastName}
+                    {p.lastName}, {p.firstName}
                   </button>
                 </li>
               )

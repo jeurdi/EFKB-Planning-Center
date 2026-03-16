@@ -1,3 +1,37 @@
+// ─── Event Types ──────────────────────────────────────────────────────────────
+
+export type EventType = 'GOTTESDIENST' | 'JUGEND' | 'KINDER' | 'GEBET' | 'MITARBEITER' | 'INTERN' | 'SONSTIGE'
+
+export const EVENT_TYPES: EventType[] = [
+  'GOTTESDIENST', 'JUGEND', 'KINDER', 'GEBET', 'MITARBEITER', 'INTERN', 'SONSTIGE',
+]
+
+export const EVENT_TYPE_LABELS: Record<EventType, string> = {
+  GOTTESDIENST: 'Gottesdienst',
+  JUGEND:       'Jugendstunde',
+  KINDER:       'Kinder- / Jungschar',
+  GEBET:        'Gebetsveranstaltung',
+  MITARBEITER:  'Mitarbeitertreff',
+  INTERN:       'Interner Termin',
+  SONSTIGE:     'Sonstiges',
+}
+
+export const EVENT_TYPE_DEFAULTS: Record<EventType, {
+  needsPlanning: boolean
+  isPublic: boolean
+  defaultTitle: string
+  defaultStartTime: string
+  defaultEndTime: string
+}> = {
+  GOTTESDIENST: { needsPlanning: true,  isPublic: true,  defaultTitle: 'Gottesdienst',    defaultStartTime: '10:00', defaultEndTime: '11:30' },
+  JUGEND:       { needsPlanning: false, isPublic: true,  defaultTitle: 'Jugendstunde',     defaultStartTime: '20:00', defaultEndTime: '22:00' },
+  KINDER:       { needsPlanning: false, isPublic: true,  defaultTitle: 'Jungschar',        defaultStartTime: '18:00', defaultEndTime: '20:00' },
+  GEBET:        { needsPlanning: false, isPublic: true,  defaultTitle: 'Gebetskreis',      defaultStartTime: '19:30', defaultEndTime: '21:00' },
+  MITARBEITER:  { needsPlanning: false, isPublic: true,  defaultTitle: 'Mitarbeitertreff', defaultStartTime: '19:00', defaultEndTime: '21:00' },
+  INTERN:       { needsPlanning: false, isPublic: false, defaultTitle: 'Interner Termin',  defaultStartTime: '09:00', defaultEndTime: '12:00' },
+  SONSTIGE:     { needsPlanning: false, isPublic: true,  defaultTitle: '',                 defaultStartTime: '10:00', defaultEndTime: '12:00' },
+}
+
 // ─── Job Roles ────────────────────────────────────────────────────────────────
 
 export type JobRole =
@@ -97,6 +131,9 @@ export interface CalendarEvent {
   startDate: string
   endDate: string
   isService: boolean
+  eventType: EventType
+  isPublic: boolean
+  needsPlanning: boolean
 }
 
 export interface ServiceJob {

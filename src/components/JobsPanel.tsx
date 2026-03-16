@@ -1,10 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import type { ServiceJob, Person } from '@/types'
+import type { ServiceJob, Person, JobRole } from '@/types'
 import { JOB_ROLE_GROUPS, JOB_ROLE_LABELS, MULTI_PERSON_ROLES } from '@/types'
 import { PersonPicker } from './PersonPicker'
 import { MultiPersonPicker } from './MultiPersonPicker'
+
+function sortPersonsForRole(persons: Person[], role: JobRole): Person[] {
+  const byLastName = (a: Person, b: Person) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
+  const matching = persons.filter((p) => p.roles?.includes(role)).sort(byLastName)
+  const rest     = persons.filter((p) => !p.roles?.includes(role)).sort(byLastName)
+  return [...matching, ...rest]
+}
 
 interface JobsPanelProps {
   eventId: string
@@ -80,20 +87,24 @@ export function JobsPanel({ eventId, jobs, persons, onChange }: JobsPanelProps) 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {group.roles.map((role) => {
                 const isMulti = MULTI_PERSON_ROLES.includes(role)
+                const sorted = sortPersonsForRole(persons, role)
+                const matchCount = persons.filter((p) => p.roles?.includes(role)).length
                 return (
                   <div key={role}>
                     <label className="label">{JOB_ROLE_LABELS[role]}</label>
                     <div className="relative">
                       {isMulti ? (
                         <MultiPersonPicker
-                          persons={persons}
+                          persons={sorted}
+                          matchCount={matchCount}
                           values={jobMultiMap[role] ?? []}
                           onChange={(personIds) => handleMultiChange(role, personIds)}
                           placeholder="Nicht besetzt"
                         />
                       ) : (
                         <PersonPicker
-                          persons={persons}
+                          persons={sorted}
+                          matchCount={matchCount}
                           value={jobMap[role] ?? null}
                           onChange={(personId) => handleChange(role, personId)}
                           placeholder="Nicht besetzt"
