@@ -34,9 +34,9 @@ export const MULTI_PERSON_ROLES: JobRole[] = ['PREDIGT', 'TECHNIK_MITARBEITER', 
 
 // Groups for display in JobsPanel
 export const JOB_ROLE_GROUPS: { label: string; roles: JobRole[] }[] = [
-  { label: 'Technik', roles: ['TECHNIK_LEITER', 'TECHNIK_MITARBEITER'] },
   { label: 'Dienst', roles: ['MODERATION', 'PREDIGT', 'KINDERGESCHICHTE'] },
   { label: 'Gesang', roles: ['GESANG_LEITER', 'GESANG_MITARBEITER'] },
+  { label: 'Technik', roles: ['TECHNIK_LEITER', 'TECHNIK_MITARBEITER'] },
 ]
 
 // ─── Agenda presets ───────────────────────────────────────────────────────────

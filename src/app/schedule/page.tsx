@@ -86,33 +86,35 @@ export default function SchedulePage() {
         <p className="text-gray-500">Lädt…</p>
       ) : activeTab === 'GESAMT' ? (
         /* ── Gesamt table ── */
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Datum</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Zeit</th>
-                {GESAMT_COLS.map((c) => (
-                  <th key={c.role} className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">
-                    {c.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((e) => (
-                <tr key={e.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="px-3 py-2 text-gray-900 whitespace-nowrap">{formatDate(e.startDate)}</td>
-                  <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{formatTime(e.startDate)}</td>
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left px-4 py-3 font-semibold text-gray-500 whitespace-nowrap text-xs uppercase tracking-wider">Datum</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-500 whitespace-nowrap text-xs uppercase tracking-wider">Zeit</th>
                   {GESAMT_COLS.map((c) => (
-                    <td key={c.role} className="px-3 py-2 text-gray-700 whitespace-nowrap">
-                      {personName(e.jobs, c.role)}
-                    </td>
+                    <th key={c.role} className="text-left px-4 py-3 font-semibold text-gray-500 whitespace-nowrap text-xs uppercase tracking-wider">
+                      {c.label}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {events.map((e) => (
+                  <tr key={e.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">{formatDate(e.startDate)}</td>
+                    <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{formatTime(e.startDate)}</td>
+                    {GESAMT_COLS.map((c) => (
+                      <td key={c.role} className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                        {personName(e.jobs, c.role)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : singleRows.length === 0 ? (
         <p className="text-gray-500">Keine Einträge gefunden.</p>

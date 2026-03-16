@@ -71,9 +71,11 @@ export function JobsPanel({ eventId, jobs, persons, onChange }: JobsPanelProps) 
       <div className="space-y-4">
         {JOB_ROLE_GROUPS.map((group, groupIdx) => (
           <div key={group.label}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
-              {group.label}
-            </p>
+            {groupIdx > 0 && (
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                {group.label}
+              </p>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {group.roles.map((role) => {
