@@ -102,7 +102,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8">
+    <main className="max-w-screen-2xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Dienstplan — Übersicht</h1>
 
       {/* Tabs */}
@@ -133,6 +133,7 @@ export default function SchedulePage() {
                 <tr className="border-b border-gray-100">
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 whitespace-nowrap text-xs uppercase tracking-wider">Datum</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 whitespace-nowrap text-xs uppercase tracking-wider">Zeit</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-500 whitespace-nowrap text-xs uppercase tracking-wider">Veranstaltung</th>
                   {GESAMT_COLS.map((c) => (
                     <th key={c.role} className="text-left px-4 py-3 font-semibold text-gray-500 whitespace-nowrap text-xs uppercase tracking-wider">
                       {c.label}
@@ -145,6 +146,7 @@ export default function SchedulePage() {
                   <tr key={e.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">{formatDate(e.startDate)}</td>
                     <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{formatTime(e.startDate)}</td>
+                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{e.title}</td>
                     {GESAMT_COLS.map((c) => (
                       <td key={c.role} className="px-4 py-3 text-gray-700 whitespace-nowrap">
                         {personName(e.jobs, c.role)}
@@ -165,7 +167,7 @@ export default function SchedulePage() {
             <table className="text-sm" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #6b7280' }}>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap sticky left-0 bg-white z-10" style={{ borderRight: '1px solid #6b7280' }}>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap sticky left-0 bg-white z-10" style={{ borderRight: '1px solid #6b7280', minWidth: '10rem' }}>
                     Name
                   </th>
                   <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap text-center sticky bg-white" style={{ left: '10rem', borderRight: '1px solid #6b7280' }}>
@@ -191,8 +193,8 @@ export default function SchedulePage() {
                   ).length
                   return (
                     <tr key={p.id} className="hover:bg-gray-50 transition-colors" style={{ borderBottom: '1px solid #6b7280' }}>
-                      <td className="px-4 py-2 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white" style={{ borderRight: '1px solid #6b7280' }}>
-                        {p.firstName} {p.lastName}
+                      <td className="px-4 py-2 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white" style={{ borderRight: '1px solid #6b7280', minWidth: '10rem' }}>
+                        {p.lastName}, {p.firstName}
                       </td>
                       <td className="px-3 py-2 text-center font-semibold text-blue-600" style={{ borderRight: '1px solid #6b7280' }}>
                         {count}
