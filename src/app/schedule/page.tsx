@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { CalendarEvent, ServiceJob, JobRole } from '@/types'
 
 type EventWithJobs = CalendarEvent & { jobs: ServiceJob[] }
@@ -88,8 +89,17 @@ export default function SchedulePage() {
       .catch(() => setLoading(false))
   }, [])
 
+  const router = useRouter()
+
   const { cols: matrixCols, persons: matrixPersons } =
     activeTab !== 'GESAMT' ? buildMatrix(events, activeTab as JobRole) : { cols: [], persons: [] }
+
+  const firstOfDate = new Set<string>()
+  const seenDates = new Set<string>()
+  for (const e of matrixCols) {
+    const d = shortDate(e.startDate)
+    if (!seenDates.has(d)) { seenDates.add(d); firstOfDate.add(e.id) }
+  }
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
@@ -168,7 +178,7 @@ export default function SchedulePage() {
                       style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: '5rem', verticalAlign: 'bottom', borderRight: '1px solid #6b7280' }}
                       title={formatDate(e.startDate)}
                     >
-                      {shortDate(e.startDate)}
+                      {firstOfDate.has(e.id) ? shortDate(e.startDate) : `↳ ${formatTime(e.startDate)}`}
                     </th>
                   ))}
                 </tr>
@@ -194,7 +204,9 @@ export default function SchedulePage() {
                         return (
                           <td key={e.id} className="px-2 py-2 text-center" style={{ borderRight: '1px solid #6b7280' }}>
                             {assigned ? (
-                              <span className="inline-block w-3 h-3 rounded-full bg-blue-500" title={formatDate(e.startDate)} />
+                              <button onClick={() => router.push(`/services/${e.id}`)} title={formatDate(e.startDate)}>
+                                <span className="inline-block w-3 h-3 rounded-full bg-blue-500 hover:bg-blue-700 transition-colors" />
+                              </button>
                             ) : (
                               <span className="text-gray-300">·</span>
                             )}
