@@ -5,6 +5,7 @@
 
 import type {
   Person, CalendarEvent, ServiceJob, AgendaItem, JobRole, AgendaTag, EventType,
+  AgendaTemplate, AgendaTemplateItem,
 } from '@/types'
 import mysql from 'mysql2/promise'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -338,6 +339,75 @@ export const agendaDb = {
   },
   async delete(id: string): Promise<void> {
     await getDb().run('DELETE FROM agenda_items WHERE id = ?', [id])
+  },
+}
+
+// ─── Agenda Templates ─────────────────────────────────────────────────────────
+
+type TemplateRow = { id: string; name: string; created_at: string }
+type TemplateItemRow = {
+  id: string; template_id: string; order: number; title: string
+  tag: AgendaTag | null; duration: number | null
+}
+
+function mapTemplateItem(r: TemplateItemRow): AgendaTemplateItem {
+  return { id: r.id, templateId: r.template_id, order: r.order, title: r.title, tag: r.tag, duration: r.duration }
+}
+function mapTemplate(r: TemplateRow, items: TemplateItemRow[]): AgendaTemplate {
+  return { id: r.id, name: r.name, createdAt: r.created_at, items: items.map(mapTemplateItem) }
+}
+
+export const templatesDb = {
+  async getAll(): Promise<AgendaTemplate[]> {
+    const db = getDb()
+    const rows = await db.all<TemplateRow>('SELECT * FROM agenda_templates ORDER BY name')
+    if (rows.length === 0) return []
+    const allItems = await db.all<TemplateItemRow>('SELECT * FROM agenda_template_items ORDER BY `order`')
+    return rows.map((r) => mapTemplate(r, allItems.filter((i) => i.template_id === r.id)))
+  },
+
+  async getById(id: string): Promise<AgendaTemplate | null> {
+    const db = getDb()
+    const r = await db.first<TemplateRow>('SELECT * FROM agenda_templates WHERE id = ?', [id])
+    if (!r) return null
+    const items = await db.all<TemplateItemRow>(
+      'SELECT * FROM agenda_template_items WHERE template_id = ? ORDER BY `order`', [id],
+    )
+    return mapTemplate(r, items)
+  },
+
+  async create(data: {
+    name: string
+    items: Array<{ title: string; tag?: AgendaTag | null; duration?: number | null }>
+  }): Promise<AgendaTemplate> {
+    const id = newId()
+    await getDb().batch([
+      { sql: 'INSERT INTO agenda_templates (id, name) VALUES (?, ?)', params: [id, data.name] },
+      ...data.items.map((item, i) => ({
+        sql: 'INSERT INTO agenda_template_items (id, template_id, `order`, title, tag, duration) VALUES (?, ?, ?, ?, ?, ?)',
+        params: [newId(), id, i, item.title, item.tag ?? null, item.duration ?? null],
+      })),
+    ])
+    return (await this.getById(id))!
+  },
+
+  async update(id: string, data: {
+    name: string
+    items: Array<{ title: string; tag?: AgendaTag | null; duration?: number | null }>
+  }): Promise<AgendaTemplate | null> {
+    await getDb().run('UPDATE agenda_templates SET name = ? WHERE id = ?', [data.name, id])
+    await getDb().batch([
+      { sql: 'DELETE FROM agenda_template_items WHERE template_id = ?', params: [id] },
+      ...data.items.map((item, i) => ({
+        sql: 'INSERT INTO agenda_template_items (id, template_id, `order`, title, tag, duration) VALUES (?, ?, ?, ?, ?, ?)',
+        params: [newId(), id, i, item.title, item.tag ?? null, item.duration ?? null],
+      })),
+    ])
+    return this.getById(id)
+  },
+
+  async delete(id: string): Promise<void> {
+    await getDb().run('DELETE FROM agenda_templates WHERE id = ?', [id])
   },
 }
 

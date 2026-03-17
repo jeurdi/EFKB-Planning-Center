@@ -118,6 +118,31 @@ async function main() {
     console.log('Migration v1 applied.')
   }
 
+  if (version < 2) {
+    console.log('Applying migration v2: agenda templates...')
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS agenda_templates (
+        id          VARCHAR(36) NOT NULL PRIMARY KEY,
+        name        TEXT        NOT NULL,
+        created_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS agenda_template_items (
+        id          VARCHAR(36) NOT NULL PRIMARY KEY,
+        template_id VARCHAR(36) NOT NULL,
+        \`order\`   INT         NOT NULL,
+        title       TEXT        NOT NULL,
+        tag         VARCHAR(50),
+        duration    INT,
+        FOREIGN KEY (template_id) REFERENCES agenda_templates(id) ON DELETE CASCADE,
+        INDEX idx_template_items_template (template_id)
+      )
+    `)
+    await pool.execute('UPDATE schema_version SET version = 2')
+    console.log('Migration v2 applied.')
+  }
+
   console.log('All migrations complete.')
   await pool.end()
 }

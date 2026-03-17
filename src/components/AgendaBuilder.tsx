@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -17,8 +17,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { AgendaItem, AgendaTag, Person, ServiceJob } from '@/types'
-import { AGENDA_PRESET_BORDER } from '@/types'
+import type { AgendaItem, AgendaTag, AgendaTemplate, Person, ServiceJob } from '@/types'
+import { AGENDA_PRESET_BORDER, PRESET_TO_JOB } from '@/types'
 import { AgendaItemForm } from './AgendaItemForm'
 
 // ─── Single sortable row ───────────────────────────────────────────────────────
@@ -131,6 +131,40 @@ interface AgendaBuilderProps {
 export function AgendaBuilder({ eventId, items, persons, jobs, onChange }: AgendaBuilderProps) {
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState<AgendaItem | null>(null)
+  const [templates, setTemplates] = useState<AgendaTemplate[]>([])
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/templates').then((r) => r.ok ? r.json() : []).then(setTemplates)
+  }, [])
+
+  async function applyTemplate(template: AgendaTemplate) {
+    setShowTemplateMenu(false)
+    if (items.length > 0) {
+      const replace = confirm('Bestehende Ablauf-Punkte durch Vorlage ersetzen?\nOK = Ersetzen · Abbrechen = Abbrechen')
+      if (!replace) return
+      await fetch(`/api/services/${eventId}/agenda`, { method: 'DELETE' })
+    }
+    const newItems: AgendaItem[] = []
+    for (const tItem of template.items) {
+      // Auto-assign person from job assignments using the same logic as AgendaItemForm
+      let personId: string | null = null
+      if (tItem.tag) {
+        const jobRole = PRESET_TO_JOB[tItem.tag]
+        if (jobRole) {
+          const job = jobs.find((j) => j.role === jobRole)
+          personId = job?.personId ?? null
+        }
+      }
+      const res = await fetch(`/api/services/${eventId}/agenda`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: tItem.title, tag: tItem.tag ?? null, duration: tItem.duration ?? null, personId }),
+      })
+      if (res.ok) newItems.push(await res.json() as AgendaItem)
+    }
+    onChange(newItems)
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -194,15 +228,44 @@ export function AgendaBuilder({ eventId, items, persons, jobs, onChange }: Agend
           )}
         </h2>
         {!showForm && !editItem && (
-          <button
-            onClick={() => { setEditItem(null); setShowForm(true) }}
-            className="btn-primary text-xs py-1.5 px-3"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Punkt hinzufügen
-          </button>
+          <div className="flex items-center gap-2">
+            {templates.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowTemplateMenu((v) => !v)}
+                  className="btn-secondary text-xs py-1.5 px-3"
+                >
+                  Vorlage laden
+                </button>
+                {showTemplateMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowTemplateMenu(false)} />
+                    <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-48">
+                      {templates.map((t) => (
+                        <button
+                          key={t.id}
+                          onClick={() => applyTemplate(t)}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg flex items-center justify-between gap-3"
+                        >
+                          <span className="font-medium text-gray-900">{t.name}</span>
+                          <span className="text-xs text-gray-400 shrink-0">{t.items.length} Punkte</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            <button
+              onClick={() => { setEditItem(null); setShowForm(true) }}
+              className="btn-primary text-xs py-1.5 px-3"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Punkt hinzufügen
+            </button>
+          </div>
         )}
       </div>
 

@@ -11,6 +11,7 @@ const links = [
   { href: '/schedule', label: 'Übersicht' },
   { href: '/persons', label: 'Personen' },
   { href: '/export', label: 'Export' },
+  { href: '/settings', label: 'Einstellungen' },
 ]
 
 export function Nav() {

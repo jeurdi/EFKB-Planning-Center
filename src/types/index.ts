@@ -146,6 +146,24 @@ export const AGENDA_PRESET_BORDER: Record<AgendaTag, string> = {
   BEITRAG: 'border-l-gray-300',
 }
 
+// ─── Agenda Templates ─────────────────────────────────────────────────────────
+
+export interface AgendaTemplateItem {
+  id: string
+  templateId: string
+  order: number
+  title: string
+  tag: AgendaTag | null
+  duration: number | null
+}
+
+export interface AgendaTemplate {
+  id: string
+  name: string
+  createdAt: string
+  items: AgendaTemplateItem[]
+}
+
 // ─── Data interfaces ──────────────────────────────────────────────────────────
 
 export interface Person {

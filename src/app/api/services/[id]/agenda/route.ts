@@ -49,6 +49,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   return NextResponse.json(item, { status: 201 })
 }
 
+// DELETE — clear all agenda items for the event
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id: eventId } = await params
+  const db = await import('@/lib/db')
+  const items = await db.agendaDb.getForEvent(eventId)
+  for (const item of items) {
+    await db.agendaDb.delete(item.id)
+  }
+  return NextResponse.json({ ok: true })
+}
+
 // PATCH — reorder items  Body: { orderedIds: string[] }
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
