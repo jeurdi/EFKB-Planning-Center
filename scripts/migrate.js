@@ -166,6 +166,22 @@ async function main() {
     console.log('Migration v5 applied.')
   }
 
+  if (version < 6) {
+    console.log('Applying migration v6: app_users table...')
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS app_users (
+        id         VARCHAR(36)  NOT NULL PRIMARY KEY,
+        email      VARCHAR(255) NOT NULL UNIQUE,
+        name       VARCHAR(255),
+        role       VARCHAR(50)  NOT NULL DEFAULT 'MITARBEITER',
+        created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_app_users_email (email)
+      )
+    `)
+    await pool.execute('UPDATE schema_version SET version = 6')
+    console.log('Migration v6 applied.')
+  }
+
   console.log('All migrations complete.')
   await pool.end()
 }

@@ -1,3 +1,34 @@
+// ─── App User Roles ───────────────────────────────────────────────────────────
+
+export type AppRole =
+  | 'ADMIN'
+  | 'MITARBEITER'
+  | 'MODERATOR'
+  | 'KINDERGESCHICHTE_ADMIN'
+  | 'TECHNIK_LEITER'
+  | 'GESANG_LEITER'
+
+export const APP_ROLES: AppRole[] = [
+  'ADMIN', 'MITARBEITER', 'MODERATOR', 'KINDERGESCHICHTE_ADMIN', 'TECHNIK_LEITER', 'GESANG_LEITER',
+]
+
+export const APP_ROLE_LABELS: Record<AppRole, string> = {
+  ADMIN:                  'Administrator',
+  MITARBEITER:            'Mitarbeiter',
+  MODERATOR:              'Moderator',
+  KINDERGESCHICHTE_ADMIN: 'Kindergeschichte',
+  TECHNIK_LEITER:         'Technik Leiter',
+  GESANG_LEITER:          'Gesang Leiter',
+}
+
+export interface AppUser {
+  id: string
+  email: string
+  name: string | null
+  role: AppRole
+  createdAt: string
+}
+
 // ─── Event Types ──────────────────────────────────────────────────────────────
 
 export type EventType = 'GOTTESDIENST' | 'JUGEND' | 'KINDER' | 'GEBET' | 'MITARBEITER' | 'INTERN' | 'SONSTIGE'

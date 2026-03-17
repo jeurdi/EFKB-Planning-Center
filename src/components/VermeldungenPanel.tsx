@@ -9,9 +9,10 @@ interface VermeldungenPanelProps {
   placeholder?: string
   value: string | null
   onChange: (value: string | null) => void
+  readOnly?: boolean
 }
 
-export function VermeldungenPanel({ eventId, field, label, placeholder, value, onChange }: VermeldungenPanelProps) {
+export function VermeldungenPanel({ eventId, field, label, placeholder, value, onChange, readOnly = false }: VermeldungenPanelProps) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState(value ?? '')
   const [saving, setSaving] = useState(false)
@@ -72,10 +73,11 @@ export function VermeldungenPanel({ eventId, field, label, placeholder, value, o
       {open && (
         <div className="px-5 pb-5">
           <textarea
-            className="input w-full resize-none"
+            className={`input w-full resize-none ${readOnly ? 'opacity-70 cursor-not-allowed bg-gray-50' : ''}`}
             rows={5}
             value={text}
-            onChange={handleChange}
+            onChange={readOnly ? undefined : handleChange}
+            readOnly={readOnly}
             placeholder={placeholder ?? ''}
           />
         </div>

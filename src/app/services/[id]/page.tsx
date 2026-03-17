@@ -8,6 +8,8 @@ import type { Invitation } from '@/lib/db'
 import { JobsPanel } from '@/components/JobsPanel'
 import { VermeldungenPanel } from '@/components/VermeldungenPanel'
 import { AgendaBuilder } from '@/components/AgendaBuilder'
+import { useAppUser } from '@/contexts/AppUserContext'
+import { canEditEvent, canEditVermeldungen } from '@/lib/permissions'
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('de-DE', {
@@ -32,6 +34,9 @@ export default function ServiceDetailPage({
 }) {
   const { id } = use(params)
   const router = useRouter()
+  const { role: appRole } = useAppUser()
+  const isAdmin = canEditEvent(appRole)
+  const canEditNotes = canEditVermeldungen(appRole)
 
   const [service, setService] = useState<ServiceDetail | null>(null)
   const [persons, setPersons] = useState<Person[]>([])
@@ -62,7 +67,10 @@ export default function ServiceDetailPage({
           fetch(`/api/services/${id}`),
           fetch('/api/persons'),
         ])
-        if (!serviceRes.ok) throw new Error('Service nicht gefunden')
+        if (!serviceRes.ok) {
+          const errData = await serviceRes.json().catch(() => ({})) as { error?: string }
+          throw new Error(errData.error ?? `HTTP ${serviceRes.status}`)
+        }
         const [serviceData, personsData] = await Promise.all([
           serviceRes.json() as Promise<ServiceDetail>,
           personsRes.json() as Promise<Person[]>,
@@ -254,31 +262,47 @@ export default function ServiceDetailPage({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold text-gray-900">{service.title}</h1>
-                <button onClick={openEdit} className="text-gray-400 hover:text-gray-600" title="Bearbeiten">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z" />
-                  </svg>
-                </button>
+                {isAdmin && (
+                  <button onClick={openEdit} className="text-gray-400 hover:text-gray-600" title="Bearbeiten">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z" />
+                    </svg>
+                  </button>
+                )}
                 {/* Status badges */}
-                <button
-                  onClick={() => handleToggle('isPublic')}
-                  title={service.isPublic ? 'Klicken um intern zu setzen' : 'Klicken um zu veröffentlichen'}
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${
-                    service.isPublic ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                  }`}
-                >
-                  {service.isPublic ? '✓ Öffentlich' : '🔒 Intern'}
-                </button>
-                <button
-                  onClick={() => handleToggle('needsPlanning')}
-                  title={service.needsPlanning ? 'Planung deaktivieren' : 'Planung aktivieren'}
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${
-                    service.needsPlanning ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                  }`}
-                >
-                  {service.needsPlanning ? '✓ Planung aktiv' : '+ Planung aktivieren'}
-                </button>
+                {isAdmin ? (
+                  <button
+                    onClick={() => handleToggle('isPublic')}
+                    title={service.isPublic ? 'Klicken um intern zu setzen' : 'Klicken um zu veröffentlichen'}
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${
+                      service.isPublic ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {service.isPublic ? '✓ Öffentlich' : '🔒 Intern'}
+                  </button>
+                ) : (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    service.isPublic ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {service.isPublic ? '✓ Öffentlich' : '🔒 Intern'}
+                  </span>
+                )}
+                {isAdmin ? (
+                  <button
+                    onClick={() => handleToggle('needsPlanning')}
+                    title={service.needsPlanning ? 'Planung deaktivieren' : 'Planung aktivieren'}
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${
+                      service.needsPlanning ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                    }`}
+                  >
+                    {service.needsPlanning ? '✓ Planung aktiv' : '+ Planung aktivieren'}
+                  </button>
+                ) : service.needsPlanning ? (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700">
+                    ✓ Planung aktiv
+                  </span>
+                ) : null}
               </div>
               <p className="text-gray-500 mt-1">
                 {formatDate(service.startDate)} · {formatTime(service.startDate)} – {formatTime(service.endDate)} Uhr
@@ -286,17 +310,20 @@ export default function ServiceDetailPage({
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-sm text-gray-400 shrink-0">Thema:</span>
                 <input
-                  className="input text-sm py-1 flex-1 max-w-sm"
+                  className={`input text-sm py-1 flex-1 max-w-sm ${!isAdmin ? 'opacity-70 cursor-not-allowed bg-gray-50' : ''}`}
                   value={thema}
-                  onChange={(e) => handleThemaChange(e.target.value)}
+                  onChange={isAdmin ? (e) => handleThemaChange(e.target.value) : undefined}
+                  readOnly={!isAdmin}
                   placeholder="Thema des Gottesdienstes"
                 />
               </div>
             </div>
           )}
-          <button onClick={handleDelete} className="btn-danger shrink-0">
-            Löschen
-          </button>
+          {isAdmin && (
+            <button onClick={handleDelete} className="btn-danger shrink-0">
+              Löschen
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2 mt-3 flex-wrap">
           <button
@@ -305,12 +332,16 @@ export default function ServiceDetailPage({
           >
             PDF
           </button>
-          <button onClick={handleExport} disabled={exporting} className="btn-secondary">
-            {exporting ? 'Exportiert…' : 'In Kalender exportieren'}
-          </button>
-          <button onClick={handleInvite} disabled={inviting} className="btn-secondary">
-            {inviting ? 'Sendet…' : 'Einladungen senden'}
-          </button>
+          {isAdmin && (
+            <>
+              <button onClick={handleExport} disabled={exporting} className="btn-secondary">
+                {exporting ? 'Exportiert…' : 'In Kalender exportieren'}
+              </button>
+              <button onClick={handleInvite} disabled={inviting} className="btn-secondary">
+                {inviting ? 'Sendet…' : 'Einladungen senden'}
+              </button>
+            </>
+          )}
         </div>
         {actionMsg && (
           <pre className="mt-3 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 whitespace-pre-wrap">
@@ -327,6 +358,7 @@ export default function ServiceDetailPage({
             eventId={id}
             jobs={service.jobs}
             persons={persons}
+            appRole={appRole}
             onChange={handleJobChange}
           />
 
@@ -364,6 +396,7 @@ export default function ServiceDetailPage({
               placeholder="Vermeldungen für diesen Gottesdienst…"
               value={service.vermeldungen}
               onChange={(v) => setService({ ...service, vermeldungen: v })}
+              readOnly={!canEditNotes}
             />
           </div>
 
@@ -376,6 +409,7 @@ export default function ServiceDetailPage({
               placeholder="Gebetsanliegen für diesen Gottesdienst…"
               value={service.gebetsanliegen}
               onChange={(v) => setService({ ...service, gebetsanliegen: v })}
+              readOnly={!canEditNotes}
             />
           </div>
 

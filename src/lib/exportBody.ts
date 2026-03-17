@@ -9,6 +9,12 @@ const ROLE_LABELS: Record<JobRole, string> = {
   GESANG_MITARBEITER: 'Gesang Mitarbeiter',
   TECHNIK_LEITER: 'Technik Leiter',
   TECHNIK_MITARBEITER: 'Technik Mitarbeiter',
+  PROGRAMM_GEMEINDECHOR: 'Gemeindechor',
+  PROGRAMM_JUGENDCHOR: 'Jugendchor',
+  PROGRAMM_KINDERCHOR: 'Kinderchor',
+  PROGRAMM_ORCHESTER: 'Orchester',
+  PROGRAMM_STREICHENSEMBLE: 'Streichensemble',
+  PROGRAMM_SONSTIGES: 'Programmbeitrag Sonstiges',
 }
 
 const ROLE_ORDER: JobRole[] = [

@@ -9,9 +9,10 @@ interface PersonPickerProps {
   value: string | null
   onChange: (personId: string | null) => void
   placeholder?: string
+  disabled?: boolean
 }
 
-export function PersonPicker({ persons, matchCount = 0, value, onChange, placeholder = 'Person auswählen…' }: PersonPickerProps) {
+export function PersonPicker({ persons, matchCount = 0, value, onChange, placeholder = 'Person auswählen…', disabled = false }: PersonPickerProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
@@ -42,8 +43,9 @@ export function PersonPicker({ persons, matchCount = 0, value, onChange, placeho
     <div ref={ref} className="relative">
       <button
         type="button"
+        disabled={disabled}
         onClick={() => setOpen((o) => !o)}
-        className="input text-left flex items-center justify-between gap-2 w-full"
+        className={`input text-left flex items-center justify-between gap-2 w-full ${disabled ? 'opacity-60 cursor-not-allowed bg-gray-50' : ''}`}
       >
         <span className={selected ? 'text-gray-900' : 'text-gray-400'}>
           {selected ? `${selected.firstName} ${selected.lastName}` : placeholder}

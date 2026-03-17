@@ -9,9 +9,10 @@ interface MultiPersonPickerProps {
   values: string[]
   onChange: (personIds: string[]) => void
   placeholder?: string
+  disabled?: boolean
 }
 
-export function MultiPersonPicker({ persons, matchCount = 0, values, onChange, placeholder = 'Personen auswählen…' }: MultiPersonPickerProps) {
+export function MultiPersonPicker({ persons, matchCount = 0, values, onChange, placeholder = 'Personen auswählen…', disabled = false }: MultiPersonPickerProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
@@ -41,8 +42,9 @@ export function MultiPersonPicker({ persons, matchCount = 0, values, onChange, p
     <div ref={ref} className="relative">
       <button
         type="button"
+        disabled={disabled}
         onClick={() => setOpen((o) => !o)}
-        className="input text-left flex items-center justify-between gap-2 w-full min-h-[38px]"
+        className={`input text-left flex items-center justify-between gap-2 w-full min-h-[38px] ${disabled ? 'opacity-60 cursor-not-allowed bg-gray-50' : ''}`}
       >
         <span className="flex flex-wrap gap-1 flex-1">
           {selected.length === 0 ? (

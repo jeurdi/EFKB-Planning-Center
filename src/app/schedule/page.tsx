@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { CalendarEvent, ServiceJob, JobRole } from '@/types'
 import { PROGRAMM_ROLES, PROGRAMM_ROLE_LABELS } from '@/types'
+import { useAppUser } from '@/contexts/AppUserContext'
+import { canSeeSchedule } from '@/lib/permissions'
 
 type EventWithJobs = CalendarEvent & { jobs: ServiceJob[] }
 type ActiveTab = JobRole | 'GESAMT'
@@ -96,6 +98,15 @@ export default function SchedulePage() {
   const [events, setEvents] = useState<EventWithJobs[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<ActiveTab>('PREDIGT')
+  const { role, loading: roleLoading } = useAppUser()
+
+  if (!roleLoading && !canSeeSchedule(role)) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center">
+        <p className="text-gray-500">Kein Zugriff auf diese Seite.</p>
+      </div>
+    )
+  }
 
   useEffect(() => {
     fetch('/api/schedule')

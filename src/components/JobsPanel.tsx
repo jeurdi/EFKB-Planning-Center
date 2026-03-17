@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import type { ServiceJob, Person, JobRole } from '@/types'
+import type { ServiceJob, Person, JobRole, AppRole } from '@/types'
 import { JOB_ROLE_GROUPS, JOB_ROLE_LABELS, MULTI_PERSON_ROLES, PROGRAMM_ROLES, PROGRAMM_ROLE_LABELS } from '@/types'
+import { canEditJobRole, canEditProgrammbeitrag } from '@/lib/permissions'
 import { PersonPicker } from './PersonPicker'
 import { MultiPersonPicker } from './MultiPersonPicker'
 
@@ -17,10 +18,11 @@ interface JobsPanelProps {
   eventId: string
   jobs: ServiceJob[]
   persons: Person[]
+  appRole: AppRole | null
   onChange: (jobs: ServiceJob[]) => void
 }
 
-export function JobsPanel({ eventId, jobs, persons, onChange }: JobsPanelProps) {
+export function JobsPanel({ eventId, jobs, persons, appRole, onChange }: JobsPanelProps) {
   const [saving, setSaving] = useState<string | null>(null)
   const [open, setOpen] = useState(true)
 
@@ -164,16 +166,18 @@ export function JobsPanel({ eventId, jobs, persons, onChange }: JobsPanelProps) 
                           persons={sorted}
                           matchCount={matchCount}
                           values={jobMultiMap[role] ?? []}
-                          onChange={(personIds) => handleMultiChange(role, personIds)}
+                          onChange={canEditJobRole(appRole, role) ? (personIds) => handleMultiChange(role, personIds) : () => {}}
                           placeholder="Nicht besetzt"
+                          disabled={!canEditJobRole(appRole, role)}
                         />
                       ) : (
                         <PersonPicker
                           persons={sorted}
                           matchCount={matchCount}
                           value={jobMap[role] ?? null}
-                          onChange={(personId) => handleChange(role, personId)}
+                          onChange={canEditJobRole(appRole, role) ? (personId) => handleChange(role, personId) : () => {}}
                           placeholder="Nicht besetzt"
+                          disabled={!canEditJobRole(appRole, role)}
                         />
                       )}
                       {saving === role && (
@@ -206,6 +210,7 @@ export function JobsPanel({ eventId, jobs, persons, onChange }: JobsPanelProps) 
                 className="select"
                 value={programmType}
                 onChange={(e) => handleProgrammTypeChange(e.target.value as JobRole | '')}
+                disabled={!canEditProgrammbeitrag(appRole)}
               >
                 <option value="">— Kein Beitrag —</option>
                 {PROGRAMM_ROLES.map((r) => (
@@ -220,8 +225,9 @@ export function JobsPanel({ eventId, jobs, persons, onChange }: JobsPanelProps) 
                   persons={programmType ? programmSorted : []}
                   matchCount={programmType ? persons.filter((p) => p.roles?.includes(programmType as JobRole)).length : 0}
                   value={programmPersonId}
-                  onChange={handleProgrammPersonChange}
+                  onChange={canEditProgrammbeitrag(appRole) ? handleProgrammPersonChange : () => {}}
                   placeholder={programmType ? 'Nicht besetzt' : '— Erst Art wählen —'}
+                  disabled={!canEditProgrammbeitrag(appRole)}
                 />
                 {saving === 'PROGRAMM' && (
                   <div className="absolute inset-y-0 right-8 flex items-center pr-2 pointer-events-none">

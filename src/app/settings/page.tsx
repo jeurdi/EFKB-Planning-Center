@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { AgendaTemplate, AgendaTag } from '@/types'
-import { AGENDA_PRESETS, AGENDA_PRESET_LABELS } from '@/types'
+import type { AgendaTemplate, AgendaTag, AppUser, AppRole } from '@/types'
+import { AGENDA_PRESETS, AGENDA_PRESET_LABELS, APP_ROLES, APP_ROLE_LABELS } from '@/types'
 
 type ItemDraft = { title: string; tag: AgendaTag | ''; duration: string }
 type TemplateDraft = { name: string; items: ItemDraft[] }
@@ -16,13 +16,41 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // User management
+  const [users, setUsers] = useState<AppUser[]>([])
+  const [usersLoading, setUsersLoading] = useState(true)
+  const [roleChanging, setRoleChanging] = useState<string | null>(null)
+
+  async function loadUsers() {
+    const res = await fetch('/api/users')
+    if (res.ok) setUsers(await res.json() as AppUser[])
+    setUsersLoading(false)
+  }
+
+  async function handleRoleChange(userId: string, newRole: AppRole) {
+    setRoleChanging(userId)
+    await fetch(`/api/users/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: newRole }),
+    })
+    await loadUsers()
+    setRoleChanging(null)
+  }
+
+  async function handleDeleteUser(userId: string, name: string | null) {
+    if (!confirm(`Benutzer „${name ?? userId}" wirklich löschen?`)) return
+    await fetch(`/api/users/${userId}`, { method: 'DELETE' })
+    await loadUsers()
+  }
+
   async function load() {
     const res = await fetch('/api/templates')
     if (res.ok) setTemplates(await res.json())
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); loadUsers() }, [])
 
   function startNew() {
     setEditing('new')
@@ -182,6 +210,48 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* User management */}
+      <div className="card">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="font-semibold text-gray-900">Benutzer</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Rollen und Zugriffsrechte verwalten</p>
+          </div>
+        </div>
+        {usersLoading ? (
+          <div className="px-5 py-8 text-center text-gray-400 text-sm animate-pulse">Lädt…</div>
+        ) : users.length === 0 ? (
+          <div className="px-5 py-8 text-center text-gray-400 text-sm">Keine Benutzer vorhanden.</div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {users.map((u) => (
+              <div key={u.id} className="flex items-center gap-4 px-5 py-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{u.name ?? '—'}</p>
+                  <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                </div>
+                <select
+                  className="select text-sm py-1 w-44 shrink-0"
+                  value={u.role}
+                  disabled={roleChanging === u.id}
+                  onChange={(e) => handleRoleChange(u.id, e.target.value as AppRole)}
+                >
+                  {APP_ROLES.map((r) => (
+                    <option key={r} value={r}>{APP_ROLE_LABELS[r]}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => handleDeleteUser(u.id, u.name)}
+                  className="btn-ghost px-2 py-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
+                >
+                  Löschen
+                </button>
               </div>
             ))}
           </div>

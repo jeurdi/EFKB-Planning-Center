@@ -5,30 +5,32 @@
 
 import type {
   Person, CalendarEvent, ServiceJob, AgendaItem, JobRole, AgendaTag, EventType,
-  AgendaTemplate, AgendaTemplateItem,
+  AgendaTemplate, AgendaTemplateItem, AppRole, AppUser,
 } from '@/types'
 import mysql from 'mysql2/promise'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type P = any[]
 
 // ─── Pool singleton ───────────────────────────────────────────────────────────
+// Use globalThis to survive Next.js HMR module re-imports in dev mode.
+// Without this, each HMR reload creates a new pool and leaks connections.
 
-let _pool: mysql.Pool | null = null
+declare global { var __dbPool: mysql.Pool | undefined }
 
 function getPool(): mysql.Pool {
-  if (!_pool) {
-    _pool = mysql.createPool({
+  if (!globalThis.__dbPool) {
+    globalThis.__dbPool = mysql.createPool({
       host:             process.env.DB_HOST     || 'localhost',
       port:             Number(process.env.DB_PORT) || 3306,
       user:             process.env.DB_USER     || 'planung',
       password:         process.env.DB_PASSWORD || '',
       database:         process.env.DB_NAME     || 'planung',
       waitForConnections: true,
-      connectionLimit:  10,
+      connectionLimit:  5,
       charset:          'utf8mb4',
     })
   }
-  return _pool
+  return globalThis.__dbPool
 }
 
 // ─── Db abstraction ───────────────────────────────────────────────────────────
@@ -345,6 +347,55 @@ export const agendaDb = {
   },
   async delete(id: string): Promise<void> {
     await getDb().run('DELETE FROM agenda_items WHERE id = ?', [id])
+  },
+}
+
+// ─── App Users ────────────────────────────────────────────────────────────────
+
+type AppUserRow = { id: string; email: string; name: string | null; role: string; created_at: string }
+
+function mapAppUser(r: AppUserRow): AppUser {
+  return { id: r.id, email: r.email, name: r.name, role: r.role as AppRole, createdAt: r.created_at }
+}
+
+export const appUsersDb = {
+  async getAll(): Promise<AppUser[]> {
+    const rows = await getDb().all<AppUserRow>('SELECT * FROM app_users ORDER BY created_at')
+    return rows.map(mapAppUser)
+  },
+
+  async getByEmail(email: string): Promise<AppUser | null> {
+    const r = await getDb().first<AppUserRow>('SELECT * FROM app_users WHERE email = ?', [email])
+    return r ? mapAppUser(r) : null
+  },
+
+  // Find or create user; first ever user becomes ADMIN
+  async findOrCreate(email: string, name?: string | null): Promise<AppUser> {
+    const existing = await this.getByEmail(email)
+    if (existing) {
+      if (name && name !== existing.name) {
+        await getDb().run('UPDATE app_users SET name = ? WHERE email = ?', [name, email])
+        return { ...existing, name }
+      }
+      return existing
+    }
+    const count = await getDb().first<{ c: number }>('SELECT COUNT(*) as c FROM app_users')
+    const isFirst = (count?.c ?? 0) === 0
+    const role: AppRole = isFirst ? 'ADMIN' : 'MITARBEITER'
+    const id = newId()
+    await getDb().run(
+      'INSERT INTO app_users (id, email, name, role) VALUES (?, ?, ?, ?)',
+      [id, email, name ?? null, role],
+    )
+    return (await this.getByEmail(email))!
+  },
+
+  async setRole(id: string, role: AppRole): Promise<void> {
+    await getDb().run('UPDATE app_users SET role = ? WHERE id = ?', [role, id])
+  },
+
+  async delete(id: string): Promise<void> {
+    await getDb().run('DELETE FROM app_users WHERE id = ?', [id])
   },
 }
 

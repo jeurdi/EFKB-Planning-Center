@@ -2,21 +2,24 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useAppUser } from '@/contexts/AppUserContext'
+import { canSeeSchedule, canSeeExport, canSeePersons, canSeeSettings } from '@/lib/permissions'
 
 const DEV_SKIP_AUTH = process.env.NEXT_PUBLIC_DEV_SKIP_AUTH === 'true'
-
-const links = [
-  { href: '/my-services', label: 'Meine Dienste' },
-  { href: '/services', label: 'Gottesdienste' },
-  { href: '/schedule', label: 'Übersicht' },
-  { href: '/persons', label: 'Personen' },
-  { href: '/export', label: 'Export' },
-  { href: '/settings', label: 'Einstellungen' },
-]
 
 export function Nav() {
   const pathname = usePathname()
   const router = useRouter()
+  const { role } = useAppUser()
+
+  const links = [
+    { href: '/my-services', label: 'Meine Dienste', show: true },
+    { href: '/services',    label: 'Gottesdienste',  show: true },
+    { href: '/schedule',    label: 'Übersicht',       show: canSeeSchedule(role) },
+    { href: '/persons',     label: 'Personen',         show: canSeePersons(role) },
+    { href: '/export',      label: 'Export',           show: canSeeExport(role) },
+    { href: '/settings',    label: 'Einstellungen',    show: canSeeSettings(role) },
+  ]
 
   function handleSignOut() {
     if (DEV_SKIP_AUTH) { router.push('/services'); return }
@@ -39,7 +42,7 @@ export function Nav() {
 
         {/* Nav links */}
         <nav className="flex items-center gap-1">
-          {links.map(({ href, label }) => {
+          {links.filter((l) => l.show).map(({ href, label }) => {
             const active = pathname.startsWith(href)
             return (
               <Link
