@@ -141,7 +141,7 @@ export default function SchedulePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {events.map((e) => (
+                {events.filter((e) => e.needsPlanning && new Date(e.startDate) >= new Date()).map((e) => (
                   <tr key={e.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">{formatDate(e.startDate)}</td>
                     <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{formatTime(e.startDate)}</td>

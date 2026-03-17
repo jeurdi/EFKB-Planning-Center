@@ -7,7 +7,6 @@ import type { CalendarEvent } from '@/types'
 import { ServiceCard } from '@/components/ServiceCard'
 import { CalendarView } from '@/components/CalendarView'
 import { NewServiceModal } from '@/components/NewServiceModal'
-import { InternalPlanModal } from '@/components/InternalPlanModal'
 
 type View = 'list' | 'calendar'
 type Visibility = 'all' | 'public' | 'private'
@@ -28,7 +27,6 @@ function ServicesPage() {
   const [view, setView] = useState<View>('calendar')
   const [visibility, setVisibility] = useState<Visibility>('all')
   const [showNewModal, setShowNewModal] = useState(false)
-  const [showInternalPlan, setShowInternalPlan] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(() => {
     const param = searchParams.get('month')
     if (param) {
@@ -185,25 +183,6 @@ function ServicesPage() {
               {exporting ? 'Exportiert…' : 'Exportieren'}
             </button>
 
-            <button
-              onClick={() => {
-                const y = currentMonth.getFullYear()
-                const m = String(currentMonth.getMonth() + 1).padStart(2, '0')
-                window.open(`/services/print-month?month=${y}-${m}`, '_blank')
-              }}
-              className="btn-secondary"
-              title="PDF für den aktuellen Monat"
-            >
-              Monats-PDF
-            </button>
-
-            <button
-              onClick={() => setShowInternalPlan(true)}
-              className="btn-secondary"
-              title="Mitarbeiter-Plan als PDF"
-            >
-              Mitarbeiter-Plan
-            </button>
           </div>
         </div>
       </div>
@@ -254,10 +233,6 @@ function ServicesPage() {
           onPrev={prevMonth}
           onNext={nextMonth}
         />
-      )}
-
-      {showInternalPlan && (
-        <InternalPlanModal onClose={() => setShowInternalPlan(false)} />
       )}
 
       {showNewModal && (

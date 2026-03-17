@@ -10,6 +10,7 @@ const links = [
   { href: '/services', label: 'Gottesdienste' },
   { href: '/schedule', label: 'Übersicht' },
   { href: '/persons', label: 'Personen' },
+  { href: '/export', label: 'Export' },
 ]
 
 export function Nav() {

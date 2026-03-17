@@ -68,20 +68,27 @@ function EventTable({ events, hideHeader }: { events: CalendarEvent[]; hideHeade
 
 function PrintMonthContent() {
   const params = useSearchParams()
-  const monthParam = params.get('month') ?? ''
+
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const p = params.get('month')
+    if (p) {
+      const [y, m] = p.split('-').map(Number)
+      return new Date(y, m - 1, 1)
+    }
+    const d = new Date()
+    return new Date(d.getFullYear(), d.getMonth(), 1)
+  })
+
+  const year = currentMonth.getFullYear()
+  const monthIndex = currentMonth.getMonth()
 
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  const [year, monthIndex] = monthParam
-    ? [parseInt(monthParam.slice(0, 4)), parseInt(monthParam.slice(5, 7)) - 1]
-    : [new Date().getFullYear(), new Date().getMonth()]
-
   const title = `Veranstaltungen im ${MONTH_NAMES[monthIndex]} ${year}`
 
-  // Next two months
   function offsetMonth(baseYear: number, baseMonth: number, offset: number) {
     const total = baseMonth + offset
     return { y: baseYear + Math.floor(total / 12), m: ((total % 12) + 12) % 12 }
@@ -158,6 +165,19 @@ function PrintMonthContent() {
             className="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
           >
             Schließen
+          </button>
+          <button
+            onClick={() => setCurrentMonth(new Date(year, monthIndex - 1, 1))}
+            className="p-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-50 text-gray-600"
+          >
+            ‹
+          </button>
+          <span className="text-sm font-medium w-36 text-center">{MONTH_NAMES[monthIndex]} {year}</span>
+          <button
+            onClick={() => setCurrentMonth(new Date(year, monthIndex + 1, 1))}
+            className="p-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-50 text-gray-600"
+          >
+            ›
           </button>
         </div>
 
