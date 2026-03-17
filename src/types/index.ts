@@ -42,6 +42,12 @@ export type JobRole =
   | 'KINDERGESCHICHTE'
   | 'GESANG_LEITER'
   | 'GESANG_MITARBEITER'
+  | 'PROGRAMM_GEMEINDECHOR'
+  | 'PROGRAMM_JUGENDCHOR'
+  | 'PROGRAMM_KINDERCHOR'
+  | 'PROGRAMM_ORCHESTER'
+  | 'PROGRAMM_STREICHENSEMBLE'
+  | 'PROGRAMM_SONSTIGES'
 
 export const JOB_ROLES: JobRole[] = [
   'TECHNIK_LEITER',
@@ -51,27 +57,54 @@ export const JOB_ROLES: JobRole[] = [
   'KINDERGESCHICHTE',
   'GESANG_LEITER',
   'GESANG_MITARBEITER',
+  'PROGRAMM_GEMEINDECHOR',
+  'PROGRAMM_JUGENDCHOR',
+  'PROGRAMM_KINDERCHOR',
+  'PROGRAMM_ORCHESTER',
+  'PROGRAMM_STREICHENSEMBLE',
+  'PROGRAMM_SONSTIGES',
 ]
 
 export const JOB_ROLE_LABELS: Record<JobRole, string> = {
-  TECHNIK_LEITER: 'Leiter',
-  TECHNIK_MITARBEITER: 'Mitarbeiter',
-  MODERATION: 'Moderation',
-  PREDIGT: 'Predigt',
-  KINDERGESCHICHTE: 'Kindergeschichte',
-  GESANG_LEITER: 'Leiter',
-  GESANG_MITARBEITER: 'Mitarbeiter',
+  TECHNIK_LEITER:          'Leiter',
+  TECHNIK_MITARBEITER:     'Mitarbeiter',
+  MODERATION:              'Moderation',
+  PREDIGT:                 'Predigt',
+  KINDERGESCHICHTE:        'Kindergeschichte',
+  GESANG_LEITER:           'Leiter',
+  GESANG_MITARBEITER:      'Mitarbeiter',
+  PROGRAMM_GEMEINDECHOR:   'Gemeindechor',
+  PROGRAMM_JUGENDCHOR:     'Jugendchor',
+  PROGRAMM_KINDERCHOR:     'Kinderchor',
+  PROGRAMM_ORCHESTER:      'Orchester',
+  PROGRAMM_STREICHENSEMBLE:'Streichensemble',
+  PROGRAMM_SONSTIGES:      'Sonstiges',
 }
 
 // Roles that support multiple persons per service
 export const MULTI_PERSON_ROLES: JobRole[] = ['PREDIGT', 'TECHNIK_MITARBEITER', 'GESANG_MITARBEITER']
 
-// Groups for display in JobsPanel
+// Groups for display in JobsPanel (standard roles only)
 export const JOB_ROLE_GROUPS: { label: string; roles: JobRole[] }[] = [
-  { label: 'Dienst', roles: ['MODERATION', 'PREDIGT', 'KINDERGESCHICHTE'] },
-  { label: 'Gesang', roles: ['GESANG_LEITER', 'GESANG_MITARBEITER'] },
+  { label: 'Dienst',  roles: ['MODERATION', 'PREDIGT', 'KINDERGESCHICHTE'] },
+  { label: 'Gesang',  roles: ['GESANG_LEITER', 'GESANG_MITARBEITER'] },
   { label: 'Technik', roles: ['TECHNIK_LEITER', 'TECHNIK_MITARBEITER'] },
 ]
+
+// Programmbeitrag — single dropdown slot, one active type at a time
+export const PROGRAMM_ROLES: JobRole[] = [
+  'PROGRAMM_GEMEINDECHOR', 'PROGRAMM_JUGENDCHOR', 'PROGRAMM_KINDERCHOR',
+  'PROGRAMM_ORCHESTER', 'PROGRAMM_STREICHENSEMBLE', 'PROGRAMM_SONSTIGES',
+]
+
+export const PROGRAMM_ROLE_LABELS: Record<string, string> = {
+  PROGRAMM_GEMEINDECHOR:    'Gemeindechor',
+  PROGRAMM_JUGENDCHOR:      'Jugendchor',
+  PROGRAMM_KINDERCHOR:      'Kinderchor',
+  PROGRAMM_ORCHESTER:       'Orchester',
+  PROGRAMM_STREICHENSEMBLE: 'Streichensemble',
+  PROGRAMM_SONSTIGES:       'Sonstiges',
+}
 
 // ─── Agenda presets ───────────────────────────────────────────────────────────
 // (replaces the user-visible "tag" concept — now set automatically via preset buttons)

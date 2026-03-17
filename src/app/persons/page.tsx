@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Person, JobRole } from '@/types'
-import { JOB_ROLE_GROUPS } from '@/types'
+import { JOB_ROLE_GROUPS, PROGRAMM_ROLES, PROGRAMM_ROLE_LABELS } from '@/types'
 
 // Full labels for each role (used in checkboxes and badges)
 const ROLE_FULL_LABELS: Record<JobRole, string> = {
@@ -13,6 +13,12 @@ const ROLE_FULL_LABELS: Record<JobRole, string> = {
   GESANG_MITARBEITER: 'Gesang Mitarbeiter',
   TECHNIK_LEITER: 'Technik Leiter',
   TECHNIK_MITARBEITER: 'Technik Mitarbeiter',
+  PROGRAMM_GEMEINDECHOR: 'Gemeindechor',
+  PROGRAMM_JUGENDCHOR: 'Jugendchor',
+  PROGRAMM_KINDERCHOR: 'Kinderchor',
+  PROGRAMM_ORCHESTER: 'Orchester',
+  PROGRAMM_STREICHENSEMBLE: 'Streichensemble',
+  PROGRAMM_SONSTIGES: 'Programm Sonstiges',
 }
 
 const ROLE_BADGE_COLORS: Record<JobRole, string> = {
@@ -23,6 +29,12 @@ const ROLE_BADGE_COLORS: Record<JobRole, string> = {
   GESANG_MITARBEITER: 'bg-purple-50 text-purple-500',
   TECHNIK_LEITER: 'bg-orange-100 text-orange-700',
   TECHNIK_MITARBEITER: 'bg-orange-50 text-orange-500',
+  PROGRAMM_GEMEINDECHOR: 'bg-pink-100 text-pink-700',
+  PROGRAMM_JUGENDCHOR: 'bg-pink-100 text-pink-700',
+  PROGRAMM_KINDERCHOR: 'bg-pink-100 text-pink-700',
+  PROGRAMM_ORCHESTER: 'bg-pink-100 text-pink-700',
+  PROGRAMM_STREICHENSEMBLE: 'bg-pink-100 text-pink-700',
+  PROGRAMM_SONSTIGES: 'bg-pink-50 text-pink-500',
 }
 
 type FormState = { firstName: string; lastName: string; email: string; roles: JobRole[] }
@@ -309,6 +321,24 @@ function PersonForm({
                 </div>
               </div>
             ))}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                Programmbeitrag
+              </p>
+              <div className="space-y-1">
+                {PROGRAMM_ROLES.map((role) => (
+                  <label key={role} className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={form.roles.includes(role)}
+                      onChange={() => toggleRole(role)}
+                      className="rounded border-gray-300 text-blue-600"
+                    />
+                    <span className="text-sm text-gray-700">{PROGRAMM_ROLE_LABELS[role]}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 

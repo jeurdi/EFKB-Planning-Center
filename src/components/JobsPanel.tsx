@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { ServiceJob, Person, JobRole } from '@/types'
-import { JOB_ROLE_GROUPS, JOB_ROLE_LABELS, MULTI_PERSON_ROLES } from '@/types'
+import { JOB_ROLE_GROUPS, JOB_ROLE_LABELS, MULTI_PERSON_ROLES, PROGRAMM_ROLES, PROGRAMM_ROLE_LABELS } from '@/types'
 import { PersonPicker } from './PersonPicker'
 import { MultiPersonPicker } from './MultiPersonPicker'
 
@@ -36,6 +36,60 @@ export function JobsPanel({ eventId, jobs, persons, onChange }: JobsPanelProps) 
       jobMap[job.role] = job.personId
     }
   }
+
+  // Programmbeitrag: find which type is currently active
+  const programmJob = jobs.find((j) => PROGRAMM_ROLES.includes(j.role) && j.personId !== null)
+    ?? jobs.find((j) => PROGRAMM_ROLES.includes(j.role))
+  const [programmType, setProgrammType] = useState<JobRole | ''>(programmJob?.role ?? '')
+
+  async function handleProgrammTypeChange(newType: JobRole | '') {
+    const oldType = programmType
+    setProgrammType(newType)
+    setSaving('PROGRAMM')
+    try {
+      // Clear old type
+      if (oldType && oldType !== newType) {
+        await fetch(`/api/services/${eventId}/jobs`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: oldType, personId: null }),
+        })
+      }
+      // Re-assign person to new type if one was set
+      const currentPersonId = programmJob?.personId ?? null
+      if (newType && currentPersonId) {
+        const res = await fetch(`/api/services/${eventId}/jobs`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: newType, personId: currentPersonId }),
+        })
+        if (res.ok) onChange(await res.json() as ServiceJob[])
+      } else {
+        const res = await fetch(`/api/services/${eventId}/jobs`)
+        if (res.ok) onChange(await res.json() as ServiceJob[])
+      }
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  async function handleProgrammPersonChange(personId: string | null) {
+    if (!programmType) return
+    setSaving('PROGRAMM')
+    try {
+      const res = await fetch(`/api/services/${eventId}/jobs`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: programmType, personId }),
+      })
+      if (res.ok) onChange(await res.json() as ServiceJob[])
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  const programmPersonId = programmType ? (jobMap[programmType] ?? null) : null
+  const programmSorted = sortPersonsForRole(persons, programmType as JobRole)
 
   async function handleChange(role: string, personId: string | null) {
     setSaving(role)
@@ -126,6 +180,46 @@ export function JobsPanel({ eventId, jobs, persons, onChange }: JobsPanelProps) 
             )}
           </div>
         ))}
+
+        {/* Programmbeitrag */}
+        <hr className="mt-4 border-gray-100" />
+        <div className="mt-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+            Programmbeitrag
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="label">Art</label>
+              <select
+                className="select"
+                value={programmType}
+                onChange={(e) => handleProgrammTypeChange(e.target.value as JobRole | '')}
+              >
+                <option value="">— Kein Beitrag —</option>
+                {PROGRAMM_ROLES.map((r) => (
+                  <option key={r} value={r}>{PROGRAMM_ROLE_LABELS[r]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Person</label>
+              <div className="relative">
+                <PersonPicker
+                  persons={programmType ? programmSorted : []}
+                  matchCount={programmType ? persons.filter((p) => p.roles?.includes(programmType as JobRole)).length : 0}
+                  value={programmPersonId}
+                  onChange={handleProgrammPersonChange}
+                  placeholder={programmType ? 'Nicht besetzt' : '— Erst Art wählen —'}
+                />
+                {saving === 'PROGRAMM' && (
+                  <div className="absolute inset-y-0 right-8 flex items-center pr-2 pointer-events-none">
+                    <div className="h-3 w-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -44,7 +44,7 @@ export default function PrintPage({ params }: { params: Promise<{ id: string }> 
       `}</style>
 
       {/* Print / close bar — hidden when printing */}
-      <div className="no-print flex items-center gap-3 px-6 py-3 bg-gray-100 border-b border-gray-200 print:hidden">
+      <div className="no-print flex items-center justify-center gap-3 px-6 py-3 bg-gray-100 border-b border-gray-200 print:hidden">
         <button
           onClick={() => window.print()}
           className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"

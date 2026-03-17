@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { CalendarEvent, ServiceJob, JobRole } from '@/types'
+import { PROGRAMM_ROLES, PROGRAMM_ROLE_LABELS } from '@/types'
 
 type EventWithJobs = CalendarEvent & { jobs: ServiceJob[] }
 type ActiveTab = JobRole | 'GESAMT'
@@ -20,8 +21,8 @@ const GESAMT_COLS: { label: string; role: JobRole }[] = [
   { label: 'Predigt',           role: 'PREDIGT' },
   { label: 'Moderation',        role: 'MODERATION' },
   { label: 'Kindergeschichte',  role: 'KINDERGESCHICHTE' },
-  { label: 'Gesang Leiter',     role: 'GESANG_LEITER' },
-  { label: 'Technik Leiter',    role: 'TECHNIK_LEITER' },
+  { label: 'Gesang',            role: 'GESANG_LEITER' },
+  { label: 'Technik',           role: 'TECHNIK_LEITER' },
 ]
 
 function formatDate(iso: string) {
@@ -37,9 +38,23 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
 }
 
-function personName(jobs: ServiceJob[], role: JobRole) {
+function personNameShort(jobs: ServiceJob[], role: JobRole) {
   const person = jobs.find((j) => j.role === role)?.person
-  return person ? `${person.firstName} ${person.lastName}` : '—'
+  if (!person) return '—'
+  const initial = person.lastName.charAt(0).toUpperCase()
+  return `${person.firstName} ${initial}.`
+}
+
+function programmBeitrag(jobs: ServiceJob[]) {
+  const job = jobs.find((j) => PROGRAMM_ROLES.includes(j.role) && j.personId !== null)
+    ?? jobs.find((j) => PROGRAMM_ROLES.includes(j.role))
+  if (!job) return '—'
+  const label = PROGRAMM_ROLE_LABELS[job.role] ?? job.role
+  if (job.role === 'PROGRAMM_SONSTIGES' && job.person) {
+    const initial = job.person.lastName.charAt(0).toUpperCase()
+    return `Sonstiges – ${job.person.firstName} ${initial}.`
+  }
+  return label
 }
 
 // Short date label for matrix column headers: "15.03."
@@ -139,6 +154,7 @@ export default function SchedulePage() {
                       {c.label}
                     </th>
                   ))}
+                  <th className="text-left px-4 py-3 font-semibold text-gray-500 whitespace-nowrap text-xs uppercase tracking-wider">Programmbeitrag</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -149,9 +165,10 @@ export default function SchedulePage() {
                     <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{e.title}</td>
                     {GESAMT_COLS.map((c) => (
                       <td key={c.role} className="px-4 py-3 text-gray-700 whitespace-nowrap">
-                        {personName(e.jobs, c.role)}
+                        {personNameShort(e.jobs, c.role)}
                       </td>
                     ))}
+                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{programmBeitrag(e.jobs)}</td>
                   </tr>
                 ))}
               </tbody>

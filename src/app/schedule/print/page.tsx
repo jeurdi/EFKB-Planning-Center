@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { CalendarEvent, ServiceJob, JobRole } from '@/types'
+import { PROGRAMM_ROLES, PROGRAMM_ROLE_LABELS } from '@/types'
 
 type EventWithJobs = CalendarEvent & { jobs: ServiceJob[] }
 
@@ -17,8 +18,8 @@ const GESAMT_COLS: { label: string; role: JobRole }[] = [
   { label: 'Predigt',          role: 'PREDIGT' },
   { label: 'Moderation',       role: 'MODERATION' },
   { label: 'Kindergeschichte', role: 'KINDERGESCHICHTE' },
-  { label: 'Gesang Leiter',    role: 'GESANG_LEITER' },
-  { label: 'Technik Leiter',   role: 'TECHNIK_LEITER' },
+  { label: 'Gesang',           role: 'GESANG_LEITER' },
+  { label: 'Technik',          role: 'TECHNIK_LEITER' },
 ]
 
 const PRESETS = [
@@ -49,6 +50,23 @@ function personName(jobs: ServiceJob[], role: JobRole) {
   return p ? `${p.firstName} ${p.lastName}` : '—'
 }
 
+function personNameShort(jobs: ServiceJob[], role: JobRole) {
+  const p = jobs.find((j) => j.role === role)?.person
+  if (!p) return '—'
+  return `${p.firstName} ${p.lastName.charAt(0).toUpperCase()}.`
+}
+
+function programmBeitrag(jobs: ServiceJob[]) {
+  const job = jobs.find((j) => PROGRAMM_ROLES.includes(j.role) && j.personId !== null)
+    ?? jobs.find((j) => PROGRAMM_ROLES.includes(j.role))
+  if (!job) return '—'
+  if (job.role === 'PROGRAMM_SONSTIGES' && job.person) {
+    const initial = job.person.lastName.charAt(0).toUpperCase()
+    return `Sonstiges – ${job.person.firstName} ${initial}.`
+  }
+  return PROGRAMM_ROLE_LABELS[job.role] ?? job.role
+}
+
 function PrintContent() {
   const params = useSearchParams()
   const role = (params.get('role') ?? 'GESAMT').toUpperCase()
@@ -59,6 +77,15 @@ function PrintContent() {
   const [error, setError] = useState<string | null>(null)
   const [from, setFrom] = useState(toInputDate(now))
   const [to, setTo] = useState(toInputDate(new Date(now.getFullYear(), now.getMonth() + 6, now.getDate())))
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set(['PREDIGT', 'MODERATION', 'KINDERGESCHICHTE']))
+
+  function toggleCol(role: string) {
+    setHiddenCols((prev) => {
+      const next = new Set(prev)
+      next.has(role) ? next.delete(role) : next.add(role)
+      return next
+    })
+  }
 
   useEffect(() => {
     fetch('/api/schedule')
@@ -93,13 +120,14 @@ function PrintContent() {
           .no-print { display: none !important; }
           header { display: none !important; }
           body { font-size: 11pt; }
-          @page { margin: 2cm; }
+          @page { margin: 1cm 1.5cm; }
         }
         body { font-family: sans-serif; color: #111; }
       `}</style>
 
       {/* Toolbar */}
-      <div className="no-print flex items-center gap-3 flex-wrap px-6 py-4 bg-gray-100 border-b border-gray-200">
+      <div className="no-print bg-gray-100 border-b border-gray-200">
+      <div className="flex items-center justify-center gap-3 flex-wrap px-6 py-3">
         <button
           onClick={() => window.print()}
           className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
@@ -163,8 +191,26 @@ function PrintContent() {
         <span className="text-sm text-gray-500 ml-1">{events.length} Einträge</span>
       </div>
 
+      {role === 'GESAMT' && (
+        <div className="flex items-center justify-center gap-4 flex-wrap px-6 py-2 border-t border-gray-200">
+          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Spalten</span>
+          {[...GESAMT_COLS, { label: 'Programmbeitrag', role: 'PROGRAMMBEITRAG' }].map((c) => (
+            <label key={c.role} className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={!hiddenCols.has(c.role)}
+                onChange={() => toggleCol(c.role)}
+                className="rounded border-gray-300 text-blue-600"
+              />
+              {c.label}
+            </label>
+          ))}
+        </div>
+      )}
+      </div>
+
       {/* Document */}
-      <div className="max-w-4xl mx-auto px-8 pt-6 pb-10">
+      <div className="max-w-7xl mx-auto px-8 pt-6 pb-10">
         {/* Logo + Title */}
         <div className="flex items-center gap-6 mb-6 border-b border-gray-300 pb-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -184,11 +230,15 @@ function PrintContent() {
               <tr style={{ borderBottom: '2px solid #9ca3af' }}>
                 <th className="text-left font-semibold text-gray-500 pb-1 pr-6 whitespace-nowrap">Datum</th>
                 <th className="text-left font-semibold text-gray-500 pb-1 pr-6 whitespace-nowrap">Zeit</th>
-                {GESAMT_COLS.map((c) => (
+                <th className="text-left font-semibold text-gray-500 pb-1 pr-6 whitespace-nowrap">Veranstaltung</th>
+                {GESAMT_COLS.filter((c) => !hiddenCols.has(c.role)).map((c) => (
                   <th key={c.role} className="text-left font-semibold text-gray-500 pb-1 pr-4 whitespace-nowrap">
                     {c.label}
                   </th>
                 ))}
+                {!hiddenCols.has('PROGRAMMBEITRAG') && (
+                  <th className="text-left font-semibold text-gray-500 pb-1 whitespace-nowrap">Programmbeitrag</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -196,11 +246,15 @@ function PrintContent() {
                 <tr key={e.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                   <td className="py-1.5 pr-6 text-gray-900 font-medium whitespace-nowrap">{formatDate(e.startDate)}</td>
                   <td className="py-1.5 pr-6 text-gray-500 whitespace-nowrap">{formatTime(e.startDate)}</td>
-                  {GESAMT_COLS.map((c) => (
+                  <td className="py-1.5 pr-6 text-gray-700 whitespace-nowrap">{e.title}</td>
+                  {GESAMT_COLS.filter((c) => !hiddenCols.has(c.role)).map((c) => (
                     <td key={c.role} className="py-1.5 pr-4 text-gray-700 whitespace-nowrap">
-                      {personName(e.jobs, c.role)}
+                      {personNameShort(e.jobs, c.role)}
                     </td>
                   ))}
+                  {!hiddenCols.has('PROGRAMMBEITRAG') && (
+                    <td className="py-1.5 text-gray-700 whitespace-nowrap">{programmBeitrag(e.jobs)}</td>
+                  )}
                 </tr>
               ))}
             </tbody>
