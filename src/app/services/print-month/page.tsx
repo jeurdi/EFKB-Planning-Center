@@ -18,6 +18,14 @@ function parseDateParts(iso: string) {
   }
 }
 
+function isoWeek(iso: string): number {
+  const d = new Date(iso)
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
+  const jan4 = new Date(d.getFullYear(), 0, 4)
+  return 1 + Math.round(((d.getTime() - jan4.getTime()) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7)
+}
+
 function EventTable({ events, hideHeader }: { events: CalendarEvent[]; hideHeader?: boolean }) {
   return (
     <table className="text-base border-collapse" style={{ tableLayout: 'fixed', width: '100%' }}>
@@ -37,10 +45,15 @@ function EventTable({ events, hideHeader }: { events: CalendarEvent[]; hideHeade
         </thead>
       )}
       <tbody>
-        {events.map((s) => {
+        {events.map((s, i) => {
           const { weekday, day, month, time } = parseDateParts(s.startDate)
+          const nextEvent = events[i + 1]
+          const weekBreak = nextEvent && isoWeek(nextEvent.startDate) !== isoWeek(s.startDate)
+          const borderStyle = weekBreak
+            ? { borderBottom: '3px double #9ca3af' }
+            : { borderBottom: '1px solid #d1d5db' }
           return (
-            <tr key={s.id} className="border-b border-gray-400">
+            <tr key={s.id} style={borderStyle}>
               <td className="text-gray-700 whitespace-nowrap" style={{ padding: '1px 2px 1px 0' }}>{weekday}</td>
               <td className="pr-6 text-gray-700 w-28 text-right whitespace-nowrap" style={{ padding: '1px 1.5rem 1px 0' }}>{day} {month}</td>
               <td className="pr-6 text-gray-700 w-12" style={{ padding: '1px 1.5rem 1px 0' }}>{time}</td>
