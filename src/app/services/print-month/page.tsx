@@ -156,7 +156,7 @@ function PrintMonthContent() {
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                   Vorschau {group.label}
                 </p>
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col gap-0.5 max-h-36 overflow-y-auto">
                   {group.events.map((e) => {
                     const { weekday, day, month, time } = parseDateParts(e.startDate)
                     return (

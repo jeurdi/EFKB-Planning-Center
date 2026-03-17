@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { CalendarEvent } from '@/types'
 
+const SHORT_DAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mrz', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
 
 function isAllDay(iso: string) {
@@ -24,23 +25,27 @@ function formatDate(e: { startDate: string; endDate: string }) {
   }
 }
 
+function fmtEventLabel(e: CalendarEvent) {
+  const d = new Date(e.startDate)
+  return `${SHORT_DAYS[d.getDay()]} ${fmtShort(d)} — ${e.title}`
+}
+
 export default function PrintInternalPage() {
-  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [allEvents, setAllEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    const raw = localStorage.getItem('planungstool_internal_plan')
-    const ids: string[] = raw ? (JSON.parse(raw) as string[]) : []
-    const idSet = new Set(ids)
-
     fetch('/api/services?all=true')
       .then((r) => r.json())
       .then((data: unknown) => {
-        const filtered = (data as CalendarEvent[])
-          .filter((e) => idSet.has(e.id))
+        const now = new Date()
+        const future = (data as CalendarEvent[])
+          .filter((e) => new Date(e.startDate) >= now)
           .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-        setEvents(filtered)
+        setAllEvents(future)
+        setSelectedIds(new Set(future.filter((e) => !e.isPublic).map((e) => e.id)))
         setLoading(false)
       })
       .catch(() => {
@@ -49,9 +54,30 @@ export default function PrintInternalPage() {
       })
   }, [])
 
-  // Group by year
+  function toggleId(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll(evts: CalendarEvent[], checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      evts.forEach((e) => (checked ? next.add(e.id) : next.delete(e.id)))
+      return next
+    })
+  }
+
+  const internalEvents = allEvents.filter((e) => !e.isPublic)
+  const publicEvents = allEvents.filter((e) => e.isPublic)
+
+  const selectedEvents = allEvents.filter((e) => selectedIds.has(e.id))
+
+  // Group selected events by year
   const byYear: Record<number, CalendarEvent[]> = {}
-  for (const e of events) {
+  for (const e of selectedEvents) {
     const y = new Date(e.startDate).getFullYear()
     if (!byYear[y]) byYear[y] = []
     byYear[y].push(e)
@@ -74,20 +100,79 @@ export default function PrintInternalPage() {
       `}</style>
 
       {/* Toolbar */}
-      <div className="no-print flex items-center gap-3 px-6 py-4 bg-gray-100 border-b border-gray-200">
-        <button
-          onClick={() => window.print()}
-          className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
-        >
-          Als PDF drucken
-        </button>
-        <button
-          onClick={() => window.close()}
-          className="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
-        >
-          Schließen
-        </button>
-        <span className="text-sm text-gray-500">{events.length} Veranstaltungen</span>
+      <div className="no-print flex items-start gap-6 px-6 py-4 bg-gray-100 border-b border-gray-200">
+        {/* Buttons */}
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => window.print()}
+            className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
+          >
+            Als PDF drucken
+          </button>
+          <button
+            onClick={() => window.close()}
+            className="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
+          >
+            Schließen
+          </button>
+        </div>
+
+        {/* Event selection */}
+        <div className="flex gap-6 flex-wrap">
+          {/* Internal */}
+          <div>
+            <div className="flex items-center gap-3 mb-1.5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Intern ({internalEvents.length})
+              </p>
+              <div className="flex gap-1.5 text-xs text-blue-600">
+                <button onClick={() => toggleAll(internalEvents, true)}>Alle</button>
+                <span className="text-gray-300">|</span>
+                <button onClick={() => toggleAll(internalEvents, false)}>Keine</button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-0.5 max-h-36 overflow-y-auto">
+              {internalEvents.map((e) => (
+                <label key={e.id} className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(e.id)}
+                    onChange={() => toggleId(e.id)}
+                    className="rounded"
+                  />
+                  {fmtEventLabel(e)}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Public */}
+          <div>
+            <div className="flex items-center gap-3 mb-1.5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Öffentlich ({publicEvents.length})
+              </p>
+              <div className="flex gap-1.5 text-xs text-blue-600">
+                <button onClick={() => toggleAll(publicEvents, true)}>Alle</button>
+                <span className="text-gray-300">|</span>
+                <button onClick={() => toggleAll(publicEvents, false)}>Keine</button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-0.5 max-h-36 overflow-y-auto">
+              {publicEvents.map((e) => (
+                <label key={e.id} className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(e.id)}
+                    onChange={() => toggleId(e.id)}
+                    className="rounded"
+                  />
+                  {fmtEventLabel(e)}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Document */}
@@ -103,7 +188,7 @@ export default function PrintInternalPage() {
           <h1 className="text-2xl font-bold">Mitarbeiter-Plan</h1>
         </div>
 
-        {events.length === 0 && (
+        {selectedEvents.length === 0 && (
           <p className="text-gray-500">Keine Veranstaltungen ausgewählt.</p>
         )}
 
@@ -121,22 +206,13 @@ export default function PrintInternalPage() {
               </colgroup>
               <thead>
                 <tr className="border-b-2 border-gray-400">
-                  <th
-                    className="text-left font-semibold text-gray-500"
-                    style={{ padding: '2px 1.5rem 2px 0' }}
-                  >
+                  <th className="text-left font-semibold text-gray-500" style={{ padding: '2px 1.5rem 2px 0' }}>
                     Datum
                   </th>
-                  <th
-                    className="text-left font-semibold text-gray-500"
-                    style={{ padding: '2px 1.5rem 2px 0' }}
-                  >
+                  <th className="text-left font-semibold text-gray-500" style={{ padding: '2px 1.5rem 2px 0' }}>
                     Uhrzeit
                   </th>
-                  <th
-                    className="text-left font-semibold text-gray-500"
-                    style={{ padding: '2px 0' }}
-                  >
+                  <th className="text-left font-semibold text-gray-500" style={{ padding: '2px 0' }}>
                     Veranstaltung
                   </th>
                 </tr>
@@ -146,22 +222,13 @@ export default function PrintInternalPage() {
                   const { date, time } = formatDate(e)
                   return (
                     <tr key={e.id} className="border-b border-gray-300">
-                      <td
-                        className="text-gray-700 whitespace-nowrap"
-                        style={{ padding: '3px 1.5rem 3px 0' }}
-                      >
+                      <td className="text-gray-700 whitespace-nowrap" style={{ padding: '3px 1.5rem 3px 0' }}>
                         {date}
                       </td>
-                      <td
-                        className="text-gray-700"
-                        style={{ padding: '3px 1.5rem 3px 0' }}
-                      >
+                      <td className="text-gray-700" style={{ padding: '3px 1.5rem 3px 0' }}>
                         {time}
                       </td>
-                      <td
-                        className="text-gray-900 font-medium"
-                        style={{ padding: '3px 0' }}
-                      >
+                      <td className="text-gray-900 font-medium" style={{ padding: '3px 0' }}>
                         {e.title}
                       </td>
                     </tr>
