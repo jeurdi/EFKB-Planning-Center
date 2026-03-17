@@ -22,6 +22,7 @@ interface JobsPanelProps {
 
 export function JobsPanel({ eventId, jobs, persons, onChange }: JobsPanelProps) {
   const [saving, setSaving] = useState<string | null>(null)
+  const [open, setOpen] = useState(true)
 
   // Single-person roles: role → personId
   const jobMap: Record<string, string | null> = {}
@@ -120,16 +121,27 @@ export function JobsPanel({ eventId, jobs, persons, onChange }: JobsPanelProps) 
   }
 
   return (
-    <div className="card p-5">
-      <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+    <div className="card">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-5 py-4 text-left"
+      >
+        <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+          <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Dienste
+        </h2>
+        <svg
+          className={`h-4 w-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
-        Dienste
-      </h2>
+      </button>
 
-      <div className="space-y-4">
+      {open && <div className="px-5 pb-5 space-y-4">
         {JOB_ROLE_GROUPS.map((group, groupIdx) => (
           <div key={group.label}>
             {groupIdx > 0 && (
@@ -220,7 +232,7 @@ export function JobsPanel({ eventId, jobs, persons, onChange }: JobsPanelProps) 
             </div>
           </div>
         </div>
-      </div>
+      </div>}
     </div>
   )
 }

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import type { ServiceDetail, Person, AgendaItem } from '@/types'
 import type { Invitation } from '@/lib/db'
 import { JobsPanel } from '@/components/JobsPanel'
+import { VermeldungenPanel } from '@/components/VermeldungenPanel'
 import { AgendaBuilder } from '@/components/AgendaBuilder'
 
 function formatDate(dateStr: string) {
@@ -325,6 +326,15 @@ export default function ServiceDetailPage({
               </div>
             </div>
           )}
+
+          {/* Vermeldungen */}
+          <div className="mt-6">
+            <VermeldungenPanel
+              eventId={id}
+              value={service.vermeldungen}
+              onChange={(v) => setService({ ...service, vermeldungen: v })}
+            />
+          </div>
 
           {/* Agenda */}
           <div className="mt-6">

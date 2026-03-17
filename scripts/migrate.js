@@ -143,6 +143,15 @@ async function main() {
     console.log('Migration v2 applied.')
   }
 
+  if (version < 3) {
+    console.log('Applying migration v3: vermeldungen column...')
+    await pool.execute(`
+      ALTER TABLE calendar_events ADD COLUMN vermeldungen TEXT
+    `)
+    await pool.execute('UPDATE schema_version SET version = 3')
+    console.log('Migration v3 applied.')
+  }
+
   console.log('All migrations complete.')
   await pool.end()
 }

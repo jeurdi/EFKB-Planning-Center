@@ -185,6 +185,7 @@ export interface CalendarEvent {
   eventType: EventType
   isPublic: boolean
   needsPlanning: boolean
+  vermeldungen: string | null
 }
 
 export interface ServiceJob {

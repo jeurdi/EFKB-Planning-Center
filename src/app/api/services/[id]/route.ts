@@ -7,7 +7,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-  const body = await req.json() as { title?: string; startDate?: string; endDate?: string; isPublic?: boolean; needsPlanning?: boolean }
+  const body = await req.json() as { title?: string; startDate?: string; endDate?: string; isPublic?: boolean; needsPlanning?: boolean; vermeldungen?: string | null }
   const updated = await eventsDb.update(id, body)
   if (!updated) return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 })
   return NextResponse.json(updated)
