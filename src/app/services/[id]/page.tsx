@@ -359,8 +359,23 @@ export default function ServiceDetailPage({
           <div className="mt-6">
             <VermeldungenPanel
               eventId={id}
+              field="vermeldungen"
+              label="Vermeldungen"
+              placeholder="Vermeldungen für diesen Gottesdienst…"
               value={service.vermeldungen}
               onChange={(v) => setService({ ...service, vermeldungen: v })}
+            />
+          </div>
+
+          {/* Gebetsanliegen */}
+          <div className="mt-6">
+            <VermeldungenPanel
+              eventId={id}
+              field="gebetsanliegen"
+              label="Gebetsanliegen"
+              placeholder="Gebetsanliegen für diesen Gottesdienst…"
+              value={service.gebetsanliegen}
+              onChange={(v) => setService({ ...service, gebetsanliegen: v })}
             />
           </div>
 

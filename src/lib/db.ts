@@ -82,7 +82,7 @@ type PersonRow = {
 }
 type EventRow = {
   id: string; microsoft_id: string; title: string; start_date: string; end_date: string; is_service: number
-  type: string; is_public: number; needs_planning: number; vermeldungen: string | null; thema: string | null
+  type: string; is_public: number; needs_planning: number; vermeldungen: string | null; thema: string | null; gebetsanliegen: string | null
 }
 type JobRow = {
   id: string; event_id: string; role: JobRole; person_id: string | null
@@ -111,6 +111,7 @@ function mapEvent(r: EventRow): CalendarEvent {
     needsPlanning: r.needs_planning === 1,
     vermeldungen: r.vermeldungen ?? null,
     thema: r.thema ?? null,
+    gebetsanliegen: r.gebetsanliegen ?? null,
   }
 }
 function personFromRow(r: { person_id: string | null; person_first_name?: string | null; person_last_name?: string | null; person_email?: string | null }): Person | null {
@@ -218,11 +219,11 @@ export const eventsDb = {
        data.eventType ?? 'SONSTIGE', data.isPublic !== false ? 1 : 0, data.needsPlanning ? 1 : 0],
     )
   },
-  async update(id: string, data: { title?: string; startDate?: string; endDate?: string; isPublic?: boolean; needsPlanning?: boolean; vermeldungen?: string | null; thema?: string | null }): Promise<CalendarEvent | null> {
+  async update(id: string, data: { title?: string; startDate?: string; endDate?: string; isPublic?: boolean; needsPlanning?: boolean; vermeldungen?: string | null; thema?: string | null; gebetsanliegen?: string | null }): Promise<CalendarEvent | null> {
     const current = await eventsDb.getById(id)
     if (!current) return null
     await getDb().run(
-      'UPDATE calendar_events SET title=?, start_date=?, end_date=?, is_public=?, needs_planning=?, vermeldungen=?, thema=? WHERE id=?',
+      'UPDATE calendar_events SET title=?, start_date=?, end_date=?, is_public=?, needs_planning=?, vermeldungen=?, thema=?, gebetsanliegen=? WHERE id=?',
       [
         data.title ?? current.title,
         data.startDate ?? current.startDate,
@@ -231,6 +232,7 @@ export const eventsDb = {
         data.needsPlanning !== undefined ? (data.needsPlanning ? 1 : 0) : (current.needsPlanning ? 1 : 0),
         data.vermeldungen !== undefined ? data.vermeldungen : current.vermeldungen,
         data.thema !== undefined ? data.thema : current.thema,
+        data.gebetsanliegen !== undefined ? data.gebetsanliegen : current.gebetsanliegen,
         id,
       ],
     )

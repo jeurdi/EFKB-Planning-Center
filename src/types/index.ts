@@ -187,6 +187,7 @@ export interface CalendarEvent {
   needsPlanning: boolean
   vermeldungen: string | null
   thema: string | null
+  gebetsanliegen: string | null
 }
 
 export interface ServiceJob {

@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from 'react'
 
 interface VermeldungenPanelProps {
   eventId: string
+  field: string
+  label: string
+  placeholder?: string
   value: string | null
   onChange: (value: string | null) => void
 }
 
-export function VermeldungenPanel({ eventId, value, onChange }: VermeldungenPanelProps) {
-  const [open, setOpen] = useState(true)
+export function VermeldungenPanel({ eventId, field, label, placeholder, value, onChange }: VermeldungenPanelProps) {
+  const [open, setOpen] = useState(false)
   const [text, setText] = useState(value ?? '')
   const [saving, setSaving] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -29,11 +32,11 @@ export function VermeldungenPanel({ eventId, value, onChange }: VermeldungenPane
       const res = await fetch(`/api/services/${eventId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vermeldungen: val.trim() || null }),
+        body: JSON.stringify({ [field]: val.trim() || null }),
       })
       if (res.ok) {
-        const data = await res.json() as { vermeldungen?: string | null }
-        onChange(data.vermeldungen ?? null)
+        const data = await res.json() as Record<string, string | null>
+        onChange(data[field] ?? null)
       }
     } finally {
       setSaving(false)
@@ -51,7 +54,7 @@ export function VermeldungenPanel({ eventId, value, onChange }: VermeldungenPane
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
-          Vermeldungen
+          {label}
         </h2>
         <div className="flex items-center gap-2">
           {saving && (
@@ -73,7 +76,7 @@ export function VermeldungenPanel({ eventId, value, onChange }: VermeldungenPane
             rows={5}
             value={text}
             onChange={handleChange}
-            placeholder="Vermeldungen für diesen Gottesdienst…"
+            placeholder={placeholder ?? ''}
           />
         </div>
       )}
