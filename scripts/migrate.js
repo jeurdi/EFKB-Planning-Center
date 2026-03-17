@@ -152,6 +152,13 @@ async function main() {
     console.log('Migration v3 applied.')
   }
 
+  if (version < 4) {
+    console.log('Applying migration v4: thema column...')
+    await pool.execute(`ALTER TABLE calendar_events ADD COLUMN thema TEXT`)
+    await pool.execute('UPDATE schema_version SET version = 4')
+    console.log('Migration v4 applied.')
+  }
+
   console.log('All migrations complete.')
   await pool.end()
 }

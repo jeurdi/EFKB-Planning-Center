@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
+import { useEffect, useRef, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { ServiceDetail, Person, AgendaItem } from '@/types'
@@ -47,6 +47,8 @@ export default function ServiceDetailPage({
   const [editStart, setEditStart] = useState('')
   const [editEnd, setEditEnd] = useState('')
   const [saving, setSaving] = useState(false)
+  const [thema, setThema] = useState('')
+  const themaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   async function loadInvitations() {
     const res = await fetch(`/api/services/${id}/invitations`)
@@ -66,6 +68,7 @@ export default function ServiceDetailPage({
           personsRes.json() as Promise<Person[]>,
         ])
         setService(serviceData)
+        setThema(serviceData.thema ?? '')
         setPersons(personsData)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Fehler beim Laden')
@@ -167,6 +170,22 @@ export default function ServiceDetailPage({
     setService({ ...service, jobs })
   }
 
+  function handleThemaChange(val: string) {
+    setThema(val)
+    if (themaTimer.current) clearTimeout(themaTimer.current)
+    themaTimer.current = setTimeout(async () => {
+      const res = await fetch(`/api/services/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thema: val.trim() || null }),
+      })
+      if (res.ok && service) {
+        const updated = await res.json() as ServiceDetail
+        setService({ ...service, thema: updated.thema })
+      }
+    }, 800)
+  }
+
   function handleAgendaChange(agendaItems: AgendaItem[]) {
     if (!service) return
     setService({ ...service, agendaItems })
@@ -264,6 +283,15 @@ export default function ServiceDetailPage({
               <p className="text-gray-500 mt-1">
                 {formatDate(service.startDate)} · {formatTime(service.startDate)} – {formatTime(service.endDate)} Uhr
               </p>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-sm text-gray-400 shrink-0">Thema:</span>
+                <input
+                  className="input text-sm py-1 flex-1 max-w-sm"
+                  value={thema}
+                  onChange={(e) => handleThemaChange(e.target.value)}
+                  placeholder="Thema des Gottesdienstes"
+                />
+              </div>
             </div>
           )}
           <button onClick={handleDelete} className="btn-danger shrink-0">
