@@ -26,7 +26,7 @@ export function Nav() {
     import('next-auth/react').then(({ signOut }) => signOut({ callbackUrl: '/login' }))
   }
 
-  if (pathname === '/login') return null
+  if (pathname === '/login' || pathname.startsWith('/public')) return null
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">

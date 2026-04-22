@@ -7,6 +7,7 @@ import type { CalendarEvent } from '@/types'
 import { ServiceCard } from '@/components/ServiceCard'
 import { CalendarView } from '@/components/CalendarView'
 import { NewServiceModal } from '@/components/NewServiceModal'
+import { useAppUser } from '@/contexts/AppUserContext'
 
 type View = 'list' | 'calendar'
 type Visibility = 'all' | 'public' | 'private'
@@ -18,11 +19,13 @@ export default function ServicesPageWrapper() {
 function ServicesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { role } = useAppUser()
 
   const [services, setServices] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [distributing, setDistributing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<View>('calendar')
   const [visibility, setVisibility] = useState<Visibility>('all')
@@ -62,6 +65,22 @@ function ServicesPage() {
       setError(err instanceof Error ? err.message : 'Sync fehlgeschlagen')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  async function distributeRandom() {
+    setDistributing(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/distribute-random', { method: 'POST' })
+      if (!res.ok) throw new Error()
+      const data = await res.json() as { assigned: number; events: number }
+      await loadServices(true)
+      alert(`Fertig: ${data.assigned} Zuweisungen auf ${data.events} Gottesdienste.`)
+    } catch {
+      setError('Zufallsverteilung fehlgeschlagen.')
+    } finally {
+      setDistributing(false)
     }
   }
 
@@ -182,6 +201,17 @@ function ServicesPage() {
             >
               {exporting ? 'Exportiert…' : 'Exportieren'}
             </button>
+
+            {role === 'ADMIN' && (
+              <button
+                onClick={distributeRandom}
+                disabled={distributing || loading}
+                className="btn-secondary"
+                title="Jobs zufällig auf Fr 18:00 und So 10:00 Gottesdienste verteilen"
+              >
+                {distributing ? 'Verteile…' : 'Zufällig verteilen'}
+              </button>
+            )}
 
           </div>
         </div>

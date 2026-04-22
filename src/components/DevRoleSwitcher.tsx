@@ -31,7 +31,7 @@ export function DevRoleSwitcher() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 bg-yellow-50 border border-yellow-300 rounded-lg px-3 py-2 shadow-lg text-xs">
+    <div className="no-print fixed bottom-4 right-4 z-50 flex items-center gap-2 bg-yellow-50 border border-yellow-300 rounded-lg px-3 py-2 shadow-lg text-xs">
       <span className="font-semibold text-yellow-700">DEV</span>
       <select
         className="border border-yellow-300 rounded px-1.5 py-1 text-xs bg-white text-gray-800 focus:outline-none"

@@ -18,6 +18,11 @@ function parseDateParts(iso: string) {
   }
 }
 
+function isDefaultBold(iso: string): boolean {
+  const d = new Date(iso)
+  return (d.getDay() === 0 && d.getHours() === 10) || (d.getDay() === 5 && d.getHours() === 18)
+}
+
 function isoWeek(iso: string): number {
   const d = new Date(iso)
   d.setHours(0, 0, 0, 0)
@@ -26,7 +31,7 @@ function isoWeek(iso: string): number {
   return 1 + Math.round(((d.getTime() - jan4.getTime()) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7)
 }
 
-function EventTable({ events, hideHeader }: { events: CalendarEvent[]; hideHeader?: boolean }) {
+function EventTable({ events, formats, hideHeader }: { events: CalendarEvent[]; formats?: Map<string, { bold: boolean; italic: boolean }>; hideHeader?: boolean }) {
   return (
     <table className="text-base border-collapse" style={{ tableLayout: 'fixed', width: '100%' }}>
       <colgroup>
@@ -49,15 +54,16 @@ function EventTable({ events, hideHeader }: { events: CalendarEvent[]; hideHeade
           const { weekday, day, month, time } = parseDateParts(s.startDate)
           const nextEvent = events[i + 1]
           const weekBreak = nextEvent && isoWeek(nextEvent.startDate) !== isoWeek(s.startDate)
-          const borderStyle = weekBreak
-            ? { borderBottom: '3px double #9ca3af' }
-            : { borderBottom: '1px solid #d1d5db' }
+          const borderStyle = weekBreak ? { borderBottom: '3px double #9ca3af' } : { borderBottom: '1px solid #d1d5db' }
+          const fmt = formats?.get(s.id)
+          const bold = fmt?.bold ?? s.isBold
+          const italic = fmt?.italic ?? s.isItalic
           return (
             <tr key={s.id} style={borderStyle}>
               <td className="text-gray-700 whitespace-nowrap" style={{ padding: '1px 2px 1px 0' }}>{weekday}</td>
               <td className="pr-6 text-gray-700 w-28 text-right whitespace-nowrap" style={{ padding: '1px 1.5rem 1px 0' }}>{day} {month}</td>
               <td className="pr-6 text-gray-700 w-12" style={{ padding: '1px 1.5rem 1px 0' }}>{time}</td>
-              <td className="text-gray-900 font-medium" style={{ padding: '1px 0' }}>{s.title}</td>
+              <td className="text-gray-900 font-medium" style={{ padding: '1px 0', fontWeight: bold ? 'bold' : undefined, fontStyle: italic ? 'italic' : undefined }}>{s.title}</td>
             </tr>
           )
         })}
@@ -86,6 +92,20 @@ function PrintMonthContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [includedInternalIds, setIncludedInternalIds] = useState<Set<string>>(new Set())
+  const [formats, setFormats] = useState<Map<string, { bold: boolean; italic: boolean }>>(new Map())
+
+  function toggleFormat(id: string, field: 'bold' | 'italic', currentValue: boolean) {
+    const next = new Map(formats)
+    const cur = next.get(id) ?? { bold: allEvents.find(e => e.id === id)?.isBold ?? false, italic: allEvents.find(e => e.id === id)?.isItalic ?? false }
+    next.set(id, { ...cur, [field]: !currentValue })
+    setFormats(next)
+    fetch(`/api/services/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(field === 'bold' ? { isBold: !currentValue } : { isItalic: !currentValue }),
+    })
+  }
 
   const title = `Veranstaltungen im ${MONTH_NAMES[monthIndex]} ${year}`
 
@@ -104,6 +124,10 @@ function PrintMonthContent() {
           (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
         )
         setAllEvents(sorted)
+        setFormats(new Map(sorted.map(e => [e.id, {
+          bold: e.isBold || isDefaultBold(e.startDate),
+          italic: e.isItalic,
+        }])))
         setLoading(false)
       })
       .catch(() => { setError('Fehler beim Laden'); setLoading(false) })
@@ -113,6 +137,12 @@ function PrintMonthContent() {
     const d = new Date(e.startDate)
     return d.getFullYear() === year && d.getMonth() === monthIndex
   })
+  const publicCurrentEvents   = currentEvents.filter(e => e.isPublic)
+  const internalCurrentEvents = currentEvents.filter(e => !e.isPublic)
+  const displayedCurrentEvents = [
+    ...publicCurrentEvents,
+    ...internalCurrentEvents.filter(e => includedInternalIds.has(e.id)),
+  ].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
 
   function eventsForMonth(y: number, m: number) {
     return allEvents.filter((e) => {
@@ -181,34 +211,89 @@ function PrintMonthContent() {
           </button>
         </div>
 
-        {/* Preview picker */}
-        {upcomingGroups.length > 0 && (
-          <div className="flex gap-6 flex-wrap">
-            {upcomingGroups.map((group) => (
-              <div key={group.label}>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                  Vorschau {group.label}
-                </p>
-                <div className="flex flex-col gap-0.5 max-h-36 overflow-y-auto">
-                  {group.events.map((e) => {
-                    const { weekday, day, month, time } = parseDateParts(e.startDate)
-                    return (
-                      <label key={e.id} className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(e.id)}
-                          onChange={() => toggleId(e.id)}
-                          className="rounded"
-                        />
-                        {weekday} {day} {month} {time} — {e.title}
-                      </label>
-                    )
-                  })}
-                </div>
+        {/* Formatting + Preview picker */}
+        <div className="flex gap-6 flex-wrap">
+          {/* Public events — formatting only */}
+          {publicCurrentEvents.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                {MONTH_NAMES[monthIndex]} — Formatierung
+              </p>
+              <div className="flex flex-col gap-0.5 max-h-36 overflow-y-auto">
+                {publicCurrentEvents.map((e) => {
+                  const fmt = formats.get(e.id)
+                  const bold = fmt?.bold ?? e.isBold
+                  const italic = fmt?.italic ?? e.isItalic
+                  const { weekday, day, month, time } = parseDateParts(e.startDate)
+                  return (
+                    <div key={e.id} className="flex items-center gap-1.5 text-sm text-gray-700">
+                      <button onClick={() => toggleFormat(e.id, 'bold', bold)}
+                        className={`w-5 h-5 text-xs font-bold border rounded leading-none ${bold ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-300'}`}>B</button>
+                      <button onClick={() => toggleFormat(e.id, 'italic', italic)}
+                        className={`w-5 h-5 text-xs italic border rounded leading-none ${italic ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-300'}`}>I</button>
+                      <span>{weekday} {day} {month} {time} — {e.title.slice(0, 30)}</span>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          )}
+
+          {/* Internal events — optional, unchecked by default */}
+          {internalCurrentEvents.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                Intern (optional)
+              </p>
+              <div className="flex flex-col gap-0.5 max-h-36 overflow-y-auto">
+                {internalCurrentEvents.map((e) => {
+                  const fmt = formats.get(e.id)
+                  const bold = fmt?.bold ?? e.isBold
+                  const italic = fmt?.italic ?? e.isItalic
+                  const included = includedInternalIds.has(e.id)
+                  const { weekday, day, month, time } = parseDateParts(e.startDate)
+                  return (
+                    <div key={e.id} className="flex items-center gap-1.5 text-sm text-gray-700">
+                      <input type="checkbox" checked={included} onChange={() => setIncludedInternalIds(prev => { const n = new Set(prev); included ? n.delete(e.id) : n.add(e.id); return n })} className="rounded" />
+                      <button onClick={() => toggleFormat(e.id, 'bold', bold)}
+                        className={`w-5 h-5 text-xs font-bold border rounded leading-none ${bold ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-300'}`}>B</button>
+                      <button onClick={() => toggleFormat(e.id, 'italic', italic)}
+                        className={`w-5 h-5 text-xs italic border rounded leading-none ${italic ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-300'}`}>I</button>
+                      <span>{weekday} {day} {month} {time} — {e.title.slice(0, 28)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Preview picker */}
+          {upcomingGroups.map((group) => (
+            <div key={group.label}>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                Vorschau {group.label}
+              </p>
+              <div className="flex flex-col gap-0.5 max-h-36 overflow-y-auto">
+                {group.events.map((e) => {
+                  const fmt = formats.get(e.id)
+                  const bold = fmt?.bold ?? e.isBold
+                  const italic = fmt?.italic ?? e.isItalic
+                  const { weekday, day, month, time } = parseDateParts(e.startDate)
+                  return (
+                    <div key={e.id} className="flex items-center gap-1.5 text-sm text-gray-700">
+                      <input type="checkbox" checked={selectedIds.has(e.id)} onChange={() => toggleId(e.id)} className="rounded" />
+                      <button onClick={() => toggleFormat(e.id, 'bold', bold)}
+                        className={`w-5 h-5 text-xs font-bold border rounded leading-none ${bold ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-300'}`}>B</button>
+                      <button onClick={() => toggleFormat(e.id, 'italic', italic)}
+                        className={`w-5 h-5 text-xs italic border rounded leading-none ${italic ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-300'}`}>I</button>
+                      <span>{weekday} {day} {month} {time} — {e.title.slice(0, 25)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Document */}
@@ -221,29 +306,26 @@ function PrintMonthContent() {
             alt="EFK Bünde Logo"
             style={{ height: '60px', width: 'auto', flexShrink: 0 }}
           />
-          <h1 className="text-2xl font-bold">{title}</h1>
+          <div>
+            <h1 className="text-2xl font-bold">{title}</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Live-Stream: www.youtube.com/c/EFK-Bünde</p>
+          </div>
         </div>
 
-        {currentEvents.length === 0 ? (
+        {displayedCurrentEvents.length === 0 ? (
           <p className="text-gray-500">Keine Veranstaltungen in diesem Monat.</p>
         ) : (
-          <EventTable events={currentEvents} />
+          <EventTable events={displayedCurrentEvents} formats={formats} />
         )}
 
         {/* Preview section — only rendered when at least one event is selected */}
         {previewEvents.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-base font-semibold text-gray-500 mb-3 border-b border-gray-300 pb-1">
-              Vorschau
-            </h2>
-            <EventTable events={previewEvents} hideHeader />
+          <div className="mt-6" style={{ borderTop: '3px double #9ca3af', paddingTop: '4px' }}>
+            <p className="text-sm font-semibold text-gray-500 mb-1">Vorschau</p>
+            <EventTable events={previewEvents} formats={formats} hideHeader />
           </div>
         )}
 
-        {/* Footer */}
-        <p className="text-sm font-bold text-center text-gray-700" style={{ marginTop: '25px' }}>
-          Unsere Gottesdienste per live-stream unter: www.youtube.com/c/EFK-Bünde
-        </p>
       </div>
     </>
   )

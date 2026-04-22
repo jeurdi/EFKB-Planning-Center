@@ -85,6 +85,7 @@ type PersonRow = {
 type EventRow = {
   id: string; microsoft_id: string; title: string; start_date: string; end_date: string; is_service: number
   type: string; is_public: number; needs_planning: number; vermeldungen: string | null; thema: string | null; gebetsanliegen: string | null
+  is_bold: number; is_italic: number
 }
 type JobRow = {
   id: string; event_id: string; role: JobRole; person_id: string | null
@@ -114,6 +115,8 @@ function mapEvent(r: EventRow): CalendarEvent {
     vermeldungen: r.vermeldungen ?? null,
     thema: r.thema ?? null,
     gebetsanliegen: r.gebetsanliegen ?? null,
+    isBold: r.is_bold === 1,
+    isItalic: r.is_italic === 1,
   }
 }
 function personFromRow(r: { person_id: string | null; person_first_name?: string | null; person_last_name?: string | null; person_email?: string | null }): Person | null {
@@ -221,11 +224,11 @@ export const eventsDb = {
        data.eventType ?? 'SONSTIGE', data.isPublic !== false ? 1 : 0, data.needsPlanning ? 1 : 0],
     )
   },
-  async update(id: string, data: { title?: string; startDate?: string; endDate?: string; isPublic?: boolean; needsPlanning?: boolean; vermeldungen?: string | null; thema?: string | null; gebetsanliegen?: string | null }): Promise<CalendarEvent | null> {
+  async update(id: string, data: { title?: string; startDate?: string; endDate?: string; isPublic?: boolean; needsPlanning?: boolean; vermeldungen?: string | null; thema?: string | null; gebetsanliegen?: string | null; isBold?: boolean; isItalic?: boolean }): Promise<CalendarEvent | null> {
     const current = await eventsDb.getById(id)
     if (!current) return null
     await getDb().run(
-      'UPDATE calendar_events SET title=?, start_date=?, end_date=?, is_public=?, needs_planning=?, vermeldungen=?, thema=?, gebetsanliegen=? WHERE id=?',
+      'UPDATE calendar_events SET title=?, start_date=?, end_date=?, is_public=?, needs_planning=?, vermeldungen=?, thema=?, gebetsanliegen=?, is_bold=?, is_italic=? WHERE id=?',
       [
         data.title ?? current.title,
         data.startDate ?? current.startDate,
@@ -235,6 +238,8 @@ export const eventsDb = {
         data.vermeldungen !== undefined ? data.vermeldungen : current.vermeldungen,
         data.thema !== undefined ? data.thema : current.thema,
         data.gebetsanliegen !== undefined ? data.gebetsanliegen : current.gebetsanliegen,
+        data.isBold !== undefined ? (data.isBold ? 1 : 0) : (current.isBold ? 1 : 0),
+        data.isItalic !== undefined ? (data.isItalic ? 1 : 0) : (current.isItalic ? 1 : 0),
         id,
       ],
     )

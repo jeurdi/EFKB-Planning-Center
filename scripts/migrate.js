@@ -182,6 +182,14 @@ async function main() {
     console.log('Migration v6 applied.')
   }
 
+  if (version < 7) {
+    console.log('Applying migration v7: is_bold / is_italic columns...')
+    await pool.execute(`ALTER TABLE calendar_events ADD COLUMN is_bold TINYINT(1) NOT NULL DEFAULT 0`)
+    await pool.execute(`ALTER TABLE calendar_events ADD COLUMN is_italic TINYINT(1) NOT NULL DEFAULT 0`)
+    await pool.execute('UPDATE schema_version SET version = 7')
+    console.log('Migration v7 applied.')
+  }
+
   console.log('All migrations complete.')
   await pool.end()
 }

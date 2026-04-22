@@ -219,6 +219,8 @@ export interface CalendarEvent {
   vermeldungen: string | null
   thema: string | null
   gebetsanliegen: string | null
+  isBold: boolean
+  isItalic: boolean
 }
 
 export interface ServiceJob {
