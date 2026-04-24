@@ -341,11 +341,27 @@ export async function fetchGoogleCalendarEvents(
     }
   }
 
+  // Detect THISANDFUTURE splits: Google encodes them as a new UID with _R{date} suffix.
+  // The original series must be cut off at the new series' start date.
+  const cutoffs = new Map<string, Date>() // baseUid -> exclusive cutoff
+  for (const [uid, master] of masters) {
+    const m = uid.match(/_R\d{8}T\d{6}/)
+    if (m) {
+      const baseUid = uid.replace(/_R\d{8}T\d{6}/, '')
+      if (masters.has(baseUid)) {
+        const existing = cutoffs.get(baseUid)
+        if (!existing || master.dtstart < existing) cutoffs.set(baseUid, master.dtstart)
+      }
+    }
+  }
+
   const results: GoogleCalendarEvent[] = []
 
   for (const [uid, master] of masters) {
     const masterDuration = master.dtend.getTime() - master.dtstart.getTime()
+    const cutoff = cutoffs.get(uid)
     const occurrences = expandRRule(master, windowStart, windowEnd)
+      .filter(occ => !cutoff || occ < cutoff)
     const uidOverrides = overrides.get(uid) ?? []
 
     for (const occStart of occurrences) {
