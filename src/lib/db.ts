@@ -85,7 +85,8 @@ type PersonRow = {
 type EventRow = {
   id: string; microsoft_id: string; title: string; start_date: string; end_date: string; is_service: number
   type: string; is_public: number; needs_planning: number; vermeldungen: string | null; thema: string | null; gebetsanliegen: string | null
-  is_bold: number; is_italic: number
+  is_bold: number; is_italic: number; stable_key: string | null
+  cal_created_at: string | null; cal_modified_at: string | null
 }
 type JobRow = {
   id: string; event_id: string; role: JobRole; person_id: string | null
@@ -117,6 +118,8 @@ function mapEvent(r: EventRow): CalendarEvent {
     gebetsanliegen: r.gebetsanliegen ?? null,
     isBold: r.is_bold === 1,
     isItalic: r.is_italic === 1,
+    calCreatedAt: r.cal_created_at ?? null,
+    calModifiedAt: r.cal_modified_at ?? null,
   }
 }
 function personFromRow(r: { person_id: string | null; person_first_name?: string | null; person_last_name?: string | null; person_email?: string | null }): Person | null {
@@ -214,14 +217,15 @@ export const eventsDb = {
     const r = await getDb().first<EventRow>('SELECT * FROM calendar_events WHERE id = ?', [id])
     return r ? mapEvent(r) : null
   },
-  async upsert(data: { microsoftId: string; title: string; startDate: string; endDate: string; eventType?: EventType; isPublic?: boolean; needsPlanning?: boolean }): Promise<void> {
+  async upsert(data: { microsoftId: string; title: string; startDate: string; endDate: string; eventType?: EventType; isPublic?: boolean; needsPlanning?: boolean; stableKey?: string; calCreatedAt?: string | null; calModifiedAt?: string | null }): Promise<void> {
     const id = newId()
     await getDb().run(
-      `INSERT INTO calendar_events (id, microsoft_id, title, start_date, end_date, type, is_public, needs_planning)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE title=VALUES(title), start_date=VALUES(start_date), end_date=VALUES(end_date)`,
-      [id, data.microsoftId, data.title, data.startDate, data.endDate,
-       data.eventType ?? 'SONSTIGE', data.isPublic !== false ? 1 : 0, data.needsPlanning ? 1 : 0],
+      `INSERT INTO calendar_events (id, microsoft_id, stable_key, title, start_date, end_date, type, is_public, needs_planning, cal_created_at, cal_modified_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE title=VALUES(title), start_date=VALUES(start_date), end_date=VALUES(end_date), stable_key=VALUES(stable_key), cal_created_at=VALUES(cal_created_at), cal_modified_at=VALUES(cal_modified_at)`,
+      [id, data.microsoftId, data.stableKey ?? null, data.title, data.startDate, data.endDate,
+       data.eventType ?? 'SONSTIGE', data.isPublic !== false ? 1 : 0, data.needsPlanning ? 1 : 0,
+       data.calCreatedAt ?? null, data.calModifiedAt ?? null],
     )
   },
   async update(id: string, data: { title?: string; startDate?: string; endDate?: string; isPublic?: boolean; needsPlanning?: boolean; vermeldungen?: string | null; thema?: string | null; gebetsanliegen?: string | null; isBold?: boolean; isItalic?: boolean }): Promise<CalendarEvent | null> {

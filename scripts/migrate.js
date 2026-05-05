@@ -190,6 +190,22 @@ async function main() {
     console.log('Migration v7 applied.')
   }
 
+  if (version < 8) {
+    console.log('Applying migration v8: stable_key column for smart sync...')
+    await pool.execute(`ALTER TABLE calendar_events ADD COLUMN stable_key VARCHAR(512) NULL`)
+    await pool.execute(`CREATE INDEX idx_stable_key ON calendar_events (stable_key(255))`)
+    await pool.execute('UPDATE schema_version SET version = 8')
+    console.log('Migration v8 applied.')
+  }
+
+  if (version < 9) {
+    console.log('Applying migration v9: cal_created_at / cal_modified_at columns...')
+    await pool.execute(`ALTER TABLE calendar_events ADD COLUMN cal_created_at VARCHAR(30) NULL`)
+    await pool.execute(`ALTER TABLE calendar_events ADD COLUMN cal_modified_at VARCHAR(30) NULL`)
+    await pool.execute('UPDATE schema_version SET version = 9')
+    console.log('Migration v9 applied.')
+  }
+
   console.log('All migrations complete.')
   await pool.end()
 }

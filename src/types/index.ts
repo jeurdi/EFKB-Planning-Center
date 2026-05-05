@@ -221,6 +221,8 @@ export interface CalendarEvent {
   gebetsanliegen: string | null
   isBold: boolean
   isItalic: boolean
+  calCreatedAt: string | null
+  calModifiedAt: string | null
 }
 
 export interface ServiceJob {

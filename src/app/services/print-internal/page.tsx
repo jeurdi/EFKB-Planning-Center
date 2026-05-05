@@ -4,35 +4,40 @@ import { useEffect, useState } from 'react'
 import type { CalendarEvent } from '@/types'
 
 const SHORT_DAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
-const SHORT_MONTHS = ['Jan', 'Feb', 'Mrz', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
 
 function isDefaultBold(iso: string): boolean {
   const d = new Date(iso)
   return (d.getDay() === 0 && d.getHours() === 10) || (d.getDay() === 5 && d.getHours() === 18)
 }
 
-function isAllDay(iso: string) {
-  const d = new Date(iso)
-  return d.getHours() === 0 && d.getMinutes() === 0
-}
-
 function fmtShort(d: Date) {
-  return `${String(d.getDate()).padStart(2, '0')}. ${SHORT_MONTHS[d.getMonth()]}`
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`
 }
 
 function formatDate(e: { startDate: string; endDate: string }) {
   const start = new Date(e.startDate)
   const end = new Date(new Date(e.endDate).getTime() - 1)
   const endStr = fmtShort(end) !== fmtShort(start) ? ` – ${fmtShort(end)}` : ''
-  return {
-    date: `${fmtShort(start)}${endStr}`,
-    time: isAllDay(e.startDate) ? '' : `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`,
-  }
+  return `${fmtShort(start)}${endStr}`
 }
 
 function fmtEventLabel(e: CalendarEvent) {
   const d = new Date(e.startDate)
   return `${SHORT_DAYS[d.getDay()]} ${fmtShort(d)} — ${e.title}`
+}
+
+function defaultThreshold(): string {
+  const d = new Date()
+  d.setMonth(d.getMonth() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
+function isRecentlyChanged(e: CalendarEvent, threshold: string, active: boolean): boolean {
+  if (!active || !threshold) return false
+  const t = new Date(threshold)
+  if (e.calCreatedAt && new Date(e.calCreatedAt) >= t) return true
+  if (e.calModifiedAt && new Date(e.calModifiedAt) >= t) return true
+  return false
 }
 
 export default function PrintInternalPage() {
@@ -41,6 +46,8 @@ export default function PrintInternalPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [formats, setFormats] = useState<Map<string, { bold: boolean; italic: boolean }>>(new Map())
+  const [highlightNew, setHighlightNew] = useState(true)
+  const [threshold, setThreshold] = useState(defaultThreshold)
 
   function toggleFormat(id: string, field: 'bold' | 'italic', currentValue: boolean) {
     const next = new Map(formats)
@@ -55,20 +62,26 @@ export default function PrintInternalPage() {
     })
   }
 
+  // Load events once
   useEffect(() => {
     fetch('/api/services?all=true')
       .then((r) => r.json())
       .then((data: unknown) => {
         const now = new Date()
+        const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
         const future = (data as CalendarEvent[])
-          .filter((e) => new Date(e.startDate) >= now)
+          .filter((e) => {
+            const start = new Date(e.startDate)
+            if (start < now) return false
+            if (start > endOfYear) {
+              const t = e.title.toLowerCase()
+              if (e.eventType === 'MITARBEITER' || t.includes('leitungskreis')) return false
+            }
+            return true
+          })
           .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
         setAllEvents(future)
         setSelectedIds(new Set(future.filter((e) => !e.isPublic).map((e) => e.id)))
-        setFormats(new Map(future.map(e => [e.id, {
-          bold: e.isBold || isDefaultBold(e.startDate),
-          italic: e.isItalic,
-        }])))
         setLoading(false)
       })
       .catch(() => {
@@ -76,6 +89,15 @@ export default function PrintInternalPage() {
         setLoading(false)
       })
   }, [])
+
+  // Re-initialize bold state whenever events, threshold or highlightNew changes
+  useEffect(() => {
+    if (allEvents.length === 0) return
+    setFormats(new Map(allEvents.map(e => [e.id, {
+      bold: e.isBold || isDefaultBold(e.startDate) || isRecentlyChanged(e, threshold, highlightNew),
+      italic: e.isItalic,
+    }])))
+  }, [allEvents, threshold, highlightNew])
 
   function toggleId(id: string) {
     setSelectedIds((prev) => {
@@ -125,25 +147,44 @@ export default function PrintInternalPage() {
       {/* Toolbar */}
       <div className="no-print flex items-start justify-center gap-6 px-6 py-4 bg-gray-100 border-b border-gray-200">
         {/* Buttons */}
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            onClick={() => window.print()}
-            className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
-          >
-            Als PDF drucken
-          </button>
-          <button
-            onClick={() => window.close()}
-            className="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
-          >
-            Schließen
-          </button>
+        <div className="flex flex-col gap-2 shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => window.print()}
+              className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
+            >
+              Als PDF drucken
+            </button>
+            <button
+              onClick={() => window.close()}
+              className="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
+            >
+              Schließen
+            </button>
+          </div>
+          {/* Recently-changed highlight */}
+          <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={highlightNew}
+              onChange={ev => setHighlightNew(ev.target.checked)}
+              className="rounded"
+            />
+            <span>Fett: neu/geändert seit</span>
+            <input
+              type="date"
+              value={threshold}
+              onChange={ev => setThreshold(ev.target.value)}
+              disabled={!highlightNew}
+              className="border border-gray-300 rounded px-1 py-0.5 text-xs disabled:opacity-40"
+            />
+          </label>
         </div>
 
         {/* Event selection */}
-        <div className="flex gap-6 flex-wrap">
+        <div className="flex gap-8">
           {/* Internal */}
-          <div>
+          <div className="shrink-0">
             <div className="flex items-center gap-3 mb-1.5">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Intern ({internalEvents.length})
@@ -154,17 +195,18 @@ export default function PrintInternalPage() {
                 <button onClick={() => toggleAll(internalEvents, false)}>Keine</button>
               </div>
             </div>
-            <div className="flex flex-col gap-0.5 max-h-36 overflow-y-auto">
+            <div className="flex flex-col gap-0.5 overflow-y-auto" style={{ maxHeight: '50vh' }}>
               {internalEvents.map((e) => {
                 const fmt = formats.get(e.id)
                 const bold = fmt?.bold ?? e.isBold
                 const italic = fmt?.italic ?? e.isItalic
+                const isNew = isRecentlyChanged(e, threshold, highlightNew)
                 return (
                   <div key={e.id} className="flex items-center gap-1.5 text-sm text-gray-700">
                     <input type="checkbox" checked={selectedIds.has(e.id)} onChange={() => toggleId(e.id)} className="rounded" />
                     <button onClick={() => toggleFormat(e.id, 'bold', bold)} className={`w-5 h-5 text-xs font-bold border rounded leading-none ${bold ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-300'}`}>B</button>
                     <button onClick={() => toggleFormat(e.id, 'italic', italic)} className={`w-5 h-5 text-xs italic border rounded leading-none ${italic ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-300'}`}>I</button>
-                    <span>{fmtEventLabel(e)}</span>
+                    <span className={isNew ? 'text-blue-600' : ''}>{fmtEventLabel(e)}</span>
                   </div>
                 )
               })}
@@ -172,7 +214,7 @@ export default function PrintInternalPage() {
           </div>
 
           {/* Public */}
-          <div>
+          <div className="shrink-0">
             <div className="flex items-center gap-3 mb-1.5">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Öffentlich ({publicEvents.length})
@@ -183,17 +225,18 @@ export default function PrintInternalPage() {
                 <button onClick={() => toggleAll(publicEvents, false)}>Keine</button>
               </div>
             </div>
-            <div className="flex flex-col gap-0.5 max-h-36 overflow-y-auto">
+            <div className="flex flex-col gap-0.5 overflow-y-auto" style={{ maxHeight: '50vh' }}>
               {publicEvents.map((e) => {
                 const fmt = formats.get(e.id)
                 const bold = fmt?.bold ?? e.isBold
                 const italic = fmt?.italic ?? e.isItalic
+                const isNew = isRecentlyChanged(e, threshold, highlightNew)
                 return (
                   <div key={e.id} className="flex items-center gap-1.5 text-sm text-gray-700">
                     <input type="checkbox" checked={selectedIds.has(e.id)} onChange={() => toggleId(e.id)} className="rounded" />
                     <button onClick={() => toggleFormat(e.id, 'bold', bold)} className={`w-5 h-5 text-xs font-bold border rounded leading-none ${bold ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-300'}`}>B</button>
                     <button onClick={() => toggleFormat(e.id, 'italic', italic)} className={`w-5 h-5 text-xs italic border rounded leading-none ${italic ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-300'}`}>I</button>
-                    <span>{fmtEventLabel(e)}</span>
+                    <span className={isNew ? 'text-blue-600' : ''}>{fmtEventLabel(e)}</span>
                   </div>
                 )
               })}
@@ -227,17 +270,13 @@ export default function PrintInternalPage() {
               style={{ tableLayout: 'fixed', width: '100%' }}
             >
               <colgroup>
-                <col style={{ width: '10rem' }} />
-                <col style={{ width: '4.5rem' }} />
+                <col style={{ width: '9rem' }} />
                 <col />
               </colgroup>
               <thead>
                 <tr className="border-b-2 border-gray-400">
-                  <th className="text-left font-semibold text-gray-500" style={{ padding: '2px 1.5rem 2px 0' }}>
+                  <th className="text-left font-semibold text-gray-500" style={{ padding: '2px 3rem 2px 0' }}>
                     Datum
-                  </th>
-                  <th className="text-left font-semibold text-gray-500" style={{ padding: '2px 1.5rem 2px 0' }}>
-                    Uhrzeit
                   </th>
                   <th className="text-left font-semibold text-gray-500" style={{ padding: '2px 0' }}>
                     Veranstaltung
@@ -246,17 +285,14 @@ export default function PrintInternalPage() {
               </thead>
               <tbody>
                 {byYear[year].map((e) => {
-                  const { date, time } = formatDate(e)
+                  const date = formatDate(e)
                   const fmt = formats.get(e.id)
                   const bold = fmt?.bold ?? e.isBold
                   const italic = fmt?.italic ?? e.isItalic
                   return (
-                    <tr key={e.id} className="border-b border-gray-300">
-                      <td className="text-gray-700 whitespace-nowrap" style={{ padding: '3px 1.5rem 3px 0' }}>{date}</td>
-                      <td className="text-gray-700" style={{ padding: '3px 1.5rem 3px 0' }}>{time}</td>
-                      <td className="text-gray-900 font-medium" style={{ padding: '3px 0', fontWeight: bold ? 'bold' : undefined, fontStyle: italic ? 'italic' : undefined }}>
-                        {e.title}
-                      </td>
+                    <tr key={e.id} className="border-b border-gray-300" style={{ fontWeight: bold ? 'bold' : undefined, fontStyle: italic ? 'italic' : undefined }}>
+                      <td className="text-gray-700 whitespace-nowrap" style={{ padding: '3px 3rem 3px 0' }}>{date}</td>
+                      <td className="text-gray-900 font-medium" style={{ padding: '3px 0', fontWeight: bold ? 'bold' : undefined }}>{e.title}</td>
                     </tr>
                   )
                 })}

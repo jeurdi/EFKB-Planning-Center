@@ -4,6 +4,7 @@
 
 @media print {
   .no-print { display: none !important; }
+  body { background: white !important; }
 }
 
 @layer base {

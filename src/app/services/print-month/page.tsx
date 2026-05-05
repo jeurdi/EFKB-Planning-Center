@@ -59,11 +59,11 @@ function EventTable({ events, formats, hideHeader }: { events: CalendarEvent[]; 
           const bold = fmt?.bold ?? s.isBold
           const italic = fmt?.italic ?? s.isItalic
           return (
-            <tr key={s.id} style={borderStyle}>
+            <tr key={s.id} style={{ ...borderStyle, fontWeight: bold ? 'bold' : undefined, fontStyle: italic ? 'italic' : undefined }}>
               <td className="text-gray-700 whitespace-nowrap" style={{ padding: '1px 2px 1px 0' }}>{weekday}</td>
               <td className="pr-6 text-gray-700 w-28 text-right whitespace-nowrap" style={{ padding: '1px 1.5rem 1px 0' }}>{day} {month}</td>
               <td className="pr-6 text-gray-700 w-12" style={{ padding: '1px 1.5rem 1px 0' }}>{time}</td>
-              <td className="text-gray-900 font-medium" style={{ padding: '1px 0', fontWeight: bold ? 'bold' : undefined, fontStyle: italic ? 'italic' : undefined }}>{s.title}</td>
+              <td className="text-gray-900 font-medium" style={{ padding: '1px 0', fontWeight: bold ? 'bold' : undefined }}>{s.title}</td>
             </tr>
           )
         })}
@@ -94,6 +94,7 @@ function PrintMonthContent() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [includedInternalIds, setIncludedInternalIds] = useState<Set<string>>(new Set())
   const [formats, setFormats] = useState<Map<string, { bold: boolean; italic: boolean }>>(new Map())
+  const [doubleLayout, setDoubleLayout] = useState(false)
 
   function toggleFormat(id: string, field: 'bold' | 'italic', currentValue: boolean) {
     const next = new Map(formats)
@@ -176,7 +177,7 @@ function PrintMonthContent() {
           .no-print { display: none !important; }
           header { display: none !important; }
           body { font-size: 11pt; }
-          @page { margin: 2cm; }
+          @page { margin: ${doubleLayout ? '0' : '2cm'}; size: ${doubleLayout ? 'A4 landscape' : 'A4 portrait'}; }
         }
         body { font-family: sans-serif; color: #111; }
       `}</style>
@@ -195,6 +196,15 @@ function PrintMonthContent() {
             className="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
           >
             Schließen
+          </button>
+          <button
+            onClick={() => setDoubleLayout(d => !d)}
+            title="Zweimal nebeneinander auf A4 quer drucken"
+            className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
+              doubleLayout ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            2× A4
           </button>
           <button
             onClick={() => setCurrentMonth(new Date(year, monthIndex - 1, 1))}
@@ -297,36 +307,59 @@ function PrintMonthContent() {
       </div>
 
       {/* Document */}
-      <div className="max-w-2xl mx-auto px-8 pt-4 pb-10">
-        {/* Logo + Title row */}
-        <div className="flex items-center gap-6 mb-6 border-b border-gray-300 pb-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="https://efkb.de/wp-content/uploads/2024/10/cropped-cropped-Logo_EFK-Buende2015_orange-300x157-1.png"
-            alt="EFK Bünde Logo"
-            style={{ height: '60px', width: 'auto', flexShrink: 0 }}
-          />
-          <div>
-            <h1 className="text-2xl font-bold">{title}</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Live-Stream: www.youtube.com/c/EFK-Bünde</p>
+      {(() => {
+        const sheetInner = (
+          <>
+            <div className="flex items-center gap-6 mb-6 border-b border-gray-300 pb-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://efkb.de/wp-content/uploads/2024/10/cropped-cropped-Logo_EFK-Buende2015_orange-300x157-1.png"
+                alt="EFK Bünde Logo"
+                style={{ height: '60px', width: 'auto', flexShrink: 0 }}
+              />
+              <div>
+                <h1 className="text-2xl font-bold">{title}</h1>
+                <p className="text-sm text-gray-500 mt-0.5">Live-Stream: www.youtube.com/c/EFK-Bünde</p>
+              </div>
+            </div>
+
+            {displayedCurrentEvents.length === 0 ? (
+              <p className="text-gray-500">Keine Veranstaltungen in diesem Monat.</p>
+            ) : (
+              <EventTable events={displayedCurrentEvents} formats={formats} />
+            )}
+
+            {previewEvents.length > 0 && (
+              <div className="mt-4" style={{ borderTop: '3px double #9ca3af', paddingTop: '4px' }}>
+                <p className="text-sm font-semibold text-gray-500 mb-1">Vorschau</p>
+                <EventTable events={previewEvents} formats={formats} hideHeader />
+              </div>
+            )}
+          </>
+        )
+
+        if (doubleLayout) {
+          const half = (
+            <div style={{ width: '148.5mm', height: '210mm', overflow: 'hidden', flexShrink: 0 }}>
+              <div style={{ width: '202mm', padding: '1.5cm 2cm', transformOrigin: 'top left', transform: 'scale(0.735)' }}>
+                {sheetInner}
+              </div>
+            </div>
+          )
+          return (
+            <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+              {half}
+              {half}
+            </div>
+          )
+        }
+
+        return (
+          <div className="max-w-2xl mx-auto px-8 pt-4 pb-10">
+            {sheetInner}
           </div>
-        </div>
-
-        {displayedCurrentEvents.length === 0 ? (
-          <p className="text-gray-500">Keine Veranstaltungen in diesem Monat.</p>
-        ) : (
-          <EventTable events={displayedCurrentEvents} formats={formats} />
-        )}
-
-        {/* Preview section — only rendered when at least one event is selected */}
-        {previewEvents.length > 0 && (
-          <div className="mt-6" style={{ borderTop: '3px double #9ca3af', paddingTop: '4px' }}>
-            <p className="text-sm font-semibold text-gray-500 mb-1">Vorschau</p>
-            <EventTable events={previewEvents} formats={formats} hideHeader />
-          </div>
-        )}
-
-      </div>
+        )
+      })()}
     </>
   )
 }
