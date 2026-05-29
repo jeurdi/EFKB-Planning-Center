@@ -340,8 +340,8 @@ function PrintMonthContent() {
 
         if (doubleLayout) {
           const half = (
-            <div style={{ width: '148.5mm', height: '210mm', overflow: 'hidden', flexShrink: 0 }}>
-              <div style={{ width: '202mm', padding: '1.5cm 2cm', transformOrigin: 'top left', transform: 'scale(0.735)' }}>
+            <div style={{ width: '148.5mm', flexShrink: 0, overflow: 'hidden' }}>
+              <div style={{ width: '202mm', padding: '1.5cm 2cm', zoom: 0.735 }}>
                 {sheetInner}
               </div>
             </div>
