@@ -48,6 +48,7 @@ export default function PrintInternalPage() {
   const [formats, setFormats] = useState<Map<string, { bold: boolean; italic: boolean }>>(new Map())
   const [highlightNew, setHighlightNew] = useState(true)
   const [threshold, setThreshold] = useState(defaultThreshold)
+  const [twoColumn, setTwoColumn] = useState(false)
 
   function toggleFormat(id: string, field: 'bold' | 'italic', currentValue: boolean) {
     const next = new Map(formats)
@@ -117,20 +118,52 @@ export default function PrintInternalPage() {
 
   const internalEvents = allEvents.filter((e) => !e.isPublic)
   const publicEvents = allEvents.filter((e) => e.isPublic)
-
   const selectedEvents = allEvents.filter((e) => selectedIds.has(e.id))
 
-  // Group selected events by year
-  const byYear: Record<number, CalendarEvent[]> = {}
-  for (const e of selectedEvents) {
-    const y = new Date(e.startDate).getFullYear()
-    if (!byYear[y]) byYear[y] = []
-    byYear[y].push(e)
+  function renderYearGroups(evts: CalendarEvent[]) {
+    const grouped: Record<number, CalendarEvent[]> = {}
+    for (const e of evts) {
+      const y = new Date(e.startDate).getFullYear()
+      if (!grouped[y]) grouped[y] = []
+      grouped[y].push(e)
+    }
+    return Object.keys(grouped).map(Number).sort().map((year, yi) => (
+      <div key={year} className={yi > 0 ? 'mt-6' : ''}>
+        <h2 className="text-lg font-bold mb-2">{year}</h2>
+        <table className="text-base border-collapse" style={{ tableLayout: 'fixed', width: '100%' }}>
+          <colgroup>
+            <col style={{ width: '9rem' }} />
+            <col />
+          </colgroup>
+          <thead>
+            <tr className="border-b-2 border-gray-400">
+              <th className="text-left font-semibold text-gray-500" style={{ padding: '2px 3rem 2px 0' }}>Datum</th>
+              <th className="text-left font-semibold text-gray-500" style={{ padding: '2px 0' }}>Veranstaltung</th>
+            </tr>
+          </thead>
+          <tbody>
+            {grouped[year].map((e) => {
+              const date = formatDate(e)
+              const fmt = formats.get(e.id)
+              const bold = fmt?.bold ?? e.isBold
+              const italic = fmt?.italic ?? e.isItalic
+              return (
+                <tr key={e.id} className="border-b border-gray-300" style={{ fontWeight: bold ? 'bold' : undefined, fontStyle: italic ? 'italic' : undefined }}>
+                  <td className="text-gray-700 whitespace-nowrap" style={{ padding: '3px 3rem 3px 0' }}>{date}</td>
+                  <td className="text-gray-900 font-medium" style={{ padding: '3px 0', fontWeight: bold ? 'bold' : undefined }}>{e.title}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    ))
   }
-  const years = Object.keys(byYear).map(Number).sort()
 
   if (loading) return <p className="p-8 text-gray-400">Lädt…</p>
   if (error) return <p className="p-8 text-red-600">{error}</p>
+
+  const splitIdx = Math.ceil(selectedEvents.length / 2)
 
   return (
     <>
@@ -139,7 +172,7 @@ export default function PrintInternalPage() {
           .no-print { display: none !important; }
           header { display: none !important; }
           body { font-size: 11pt; }
-          @page { margin: 2cm; }
+          @page { margin: 2cm; size: ${twoColumn ? 'A4 landscape' : 'A4 portrait'}; }
         }
         body { font-family: sans-serif; color: #111; }
       `}</style>
@@ -160,6 +193,15 @@ export default function PrintInternalPage() {
               className="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
             >
               Schließen
+            </button>
+            <button
+              onClick={() => setTwoColumn(v => !v)}
+              title="Zwei Spalten im Querformat drucken"
+              className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
+                twoColumn ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              2 Spalten
             </button>
           </div>
           {/* Recently-changed highlight */}
@@ -246,7 +288,7 @@ export default function PrintInternalPage() {
       </div>
 
       {/* Document */}
-      <div className="max-w-2xl mx-auto px-8 pt-6 pb-10">
+      <div className={twoColumn ? 'px-8 pt-6 pb-10' : 'max-w-2xl mx-auto px-8 pt-6 pb-10'}>
         {/* Logo + Title */}
         <div className="flex items-center gap-6 mb-6 border-b border-gray-300 pb-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -262,44 +304,14 @@ export default function PrintInternalPage() {
           <p className="text-gray-500">Keine Veranstaltungen ausgewählt.</p>
         )}
 
-        {years.map((year, yi) => (
-          <div key={year} className={yi > 0 ? 'mt-8' : ''}>
-            <h2 className="text-lg font-bold mb-2">{year}</h2>
-            <table
-              className="text-base border-collapse"
-              style={{ tableLayout: 'fixed', width: '100%' }}
-            >
-              <colgroup>
-                <col style={{ width: '9rem' }} />
-                <col />
-              </colgroup>
-              <thead>
-                <tr className="border-b-2 border-gray-400">
-                  <th className="text-left font-semibold text-gray-500" style={{ padding: '2px 3rem 2px 0' }}>
-                    Datum
-                  </th>
-                  <th className="text-left font-semibold text-gray-500" style={{ padding: '2px 0' }}>
-                    Veranstaltung
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {byYear[year].map((e) => {
-                  const date = formatDate(e)
-                  const fmt = formats.get(e.id)
-                  const bold = fmt?.bold ?? e.isBold
-                  const italic = fmt?.italic ?? e.isItalic
-                  return (
-                    <tr key={e.id} className="border-b border-gray-300" style={{ fontWeight: bold ? 'bold' : undefined, fontStyle: italic ? 'italic' : undefined }}>
-                      <td className="text-gray-700 whitespace-nowrap" style={{ padding: '3px 3rem 3px 0' }}>{date}</td>
-                      <td className="text-gray-900 font-medium" style={{ padding: '3px 0', fontWeight: bold ? 'bold' : undefined }}>{e.title}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+        {twoColumn ? (
+          <div style={{ display: 'flex', gap: '2.5cm', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>{renderYearGroups(selectedEvents.slice(0, splitIdx))}</div>
+            <div style={{ flex: 1 }}>{renderYearGroups(selectedEvents.slice(splitIdx))}</div>
           </div>
-        ))}
+        ) : (
+          renderYearGroups(selectedEvents)
+        )}
       </div>
     </>
   )

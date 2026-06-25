@@ -10,11 +10,12 @@ const MONTH_NAMES = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli
 
 function parseDateParts(iso: string) {
   const d = new Date(iso)
+  const allDay = d.getHours() === 0 && d.getMinutes() === 0
   return {
     weekday: SHORT_DAYS[d.getDay()],
     day:     String(d.getDate()).padStart(2, '0') + '.',
     month:   SHORT_MONTHS[d.getMonth()],
-    time:    String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0'),
+    time:    allDay ? '' : String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0'),
   }
 }
 
@@ -31,7 +32,11 @@ function isoWeek(iso: string): number {
   return 1 + Math.round(((d.getTime() - jan4.getTime()) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7)
 }
 
-function EventTable({ events, formats, hideHeader }: { events: CalendarEvent[]; formats?: Map<string, { bold: boolean; italic: boolean }>; hideHeader?: boolean }) {
+function fmtNum(d: Date) {
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`
+}
+
+function EventTable({ events, formats, hideHeader, noWeekBreaks }: { events: CalendarEvent[]; formats?: Map<string, { bold: boolean; italic: boolean }>; hideHeader?: boolean; noWeekBreaks?: boolean }) {
   return (
     <table className="text-base border-collapse" style={{ tableLayout: 'fixed', width: '100%' }}>
       <colgroup>
@@ -52,17 +57,28 @@ function EventTable({ events, formats, hideHeader }: { events: CalendarEvent[]; 
       <tbody>
         {events.map((s, i) => {
           const { weekday, day, month, time } = parseDateParts(s.startDate)
+          const startD = new Date(s.startDate)
+          const endD = new Date(new Date(s.endDate).getTime() - 1)
+          const multiDay = endD.toDateString() !== startD.toDateString()
           const nextEvent = events[i + 1]
-          const weekBreak = nextEvent && isoWeek(nextEvent.startDate) !== isoWeek(s.startDate)
+          const weekBreak = !noWeekBreaks && nextEvent && isoWeek(nextEvent.startDate) !== isoWeek(s.startDate)
           const borderStyle = weekBreak ? { borderBottom: '3px double #9ca3af' } : { borderBottom: '1px solid #d1d5db' }
           const fmt = formats?.get(s.id)
           const bold = fmt?.bold ?? s.isBold
           const italic = fmt?.italic ?? s.isItalic
           return (
             <tr key={s.id} style={{ ...borderStyle, fontWeight: bold ? 'bold' : undefined, fontStyle: italic ? 'italic' : undefined }}>
-              <td className="text-gray-700 whitespace-nowrap" style={{ padding: '1px 2px 1px 0' }}>{weekday}</td>
-              <td className="pr-6 text-gray-700 w-28 text-right whitespace-nowrap" style={{ padding: '1px 1.5rem 1px 0' }}>{day} {month}</td>
-              <td className="pr-6 text-gray-700 w-12" style={{ padding: '1px 1.5rem 1px 0' }}>{time}</td>
+              {multiDay ? (
+                <td colSpan={3} className="text-gray-700 whitespace-nowrap" style={{ padding: '1px 1.5rem 1px 0' }}>
+                  {fmtNum(startD)} – {fmtNum(endD)}
+                </td>
+              ) : (
+                <>
+                  <td className="text-gray-700 whitespace-nowrap" style={{ padding: '1px 2px 1px 0' }}>{weekday}</td>
+                  <td className="pr-6 text-gray-700 w-28 text-right whitespace-nowrap" style={{ padding: '1px 1.5rem 1px 0' }}>{day} {month}</td>
+                  <td className="pr-6 text-gray-700 w-12" style={{ padding: '1px 1.5rem 1px 0' }}>{time}</td>
+                </>
+              )}
               <td className="text-gray-900 font-medium" style={{ padding: '1px 0', fontWeight: bold ? 'bold' : undefined }}>{s.title}</td>
             </tr>
           )
@@ -332,7 +348,7 @@ function PrintMonthContent() {
             {previewEvents.length > 0 && (
               <div className="mt-4" style={{ borderTop: '3px double #9ca3af', paddingTop: '4px' }}>
                 <p className="text-sm font-semibold text-gray-500 mb-1">Vorschau</p>
-                <EventTable events={previewEvents} formats={formats} hideHeader />
+                <EventTable events={previewEvents} formats={formats} hideHeader noWeekBreaks />
               </div>
             )}
           </>
